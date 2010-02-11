@@ -1,7 +1,7 @@
 defaults: &defaults
   distribution: :random
-  timeout: 10
-  connect_timeout: 2
+  timeout: 0.1
+  connect_timeout: 0.5
   server_failure_limit: 10
   auto_eject_hosts: false
 
