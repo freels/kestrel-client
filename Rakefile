@@ -24,6 +24,7 @@ begin
     gemspec.authors = ["Matt Freels", "Rael Dornfest"]
     gemspec.add_dependency 'memcached'
   end
+  Jeweler::GemcutterTasks.new
 rescue LoadError
   puts "Jeweler not available. Install it with: gem install jeweler"
 end
