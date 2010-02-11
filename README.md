@@ -1,6 +1,6 @@
 ## kestrel-client: Talk to Kestrel queue server from Ruby
 
-kestrel-client is a library that allows you to talk to a Kestrel queue server from ruby. As Kestrel uses the memcache protocol, kestrel-client is implemented as a wrapper around the memcached gem.
+kestrel-client is a library that allows you to talk to a [Kestrel](http://github.com/robey/kestrel) queue server from ruby. As Kestrel uses the memcache protocol, kestrel-client is implemented as a wrapper around the memcached gem.
 
 
 ## Installation
