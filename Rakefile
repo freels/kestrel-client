@@ -22,6 +22,7 @@ begin
     gemspec.email = "rael@twitter.com"
     gemspec.homepage = "http://github.com/freels/kestrel-client"
     gemspec.authors = ["Matt Freels", "Rael Dornfest"]
+    gemspec.add_dependency 'memcached'
   end
 rescue LoadError
   puts "Jeweler not available. Install it with: gem install jeweler"
