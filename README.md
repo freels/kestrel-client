@@ -36,10 +36,10 @@ kestrel-client comes with a number of decorators that change the behavior of the
 
 Kestrel::Config provides some tools for pulling queue config out of a YAML config file.
 
-   Kestrel::Config.load 'path/to/kestrel.yml'
-   Kestrel::Config.environment = 'production' # defaults to development
+    Kestrel::Config.load 'path/to/kestrel.yml'
+    Kestrel::Config.environment = 'production' # defaults to development
 
-   $queue = Kestrel::Config.new_client
+    $queue = Kestrel::Config.new_client
 
 This tells kestrel-client to look for `path/to/kestrel.yml`, and pull the client configuration out of
 the 'production' key in that file. Sample config:
