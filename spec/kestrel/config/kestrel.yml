@@ -1,0 +1,42 @@
+defaults: &defaults
+  distribution: :random
+  timeout: 10
+  connect_timeout: 2
+  server_failure_limit: 10
+  auto_eject_hosts: false
+
+production: &production
+  <<: *defaults
+  auto_eject_hosts: true
+  server_failure_limit: 4
+  servers:
+    - localhost:22133
+
+staging:
+    <<: *production
+    servers:
+      - localhost:22133
+
+development: &development
+  <<: *defaults
+  show_backtraces: true
+  servers:
+    - localhost:22133
+
+benchmark:
+  <<: *development
+
+test:
+  <<: *development
+
+replication_lag:
+  <<: *development
+
+selenium:
+  <<: *development
+
+foo_space:
+  production:
+    <<: *production
+  development:
+    <<: *development
