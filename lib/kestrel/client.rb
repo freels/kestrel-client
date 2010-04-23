@@ -1,7 +1,5 @@
 module Kestrel
   class Client < Memcached::Rails
-    class Timeout < Timeout::Error; end
-
     QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
 
     def flush(queue)
