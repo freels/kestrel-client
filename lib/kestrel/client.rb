@@ -1,5 +1,11 @@
 module Kestrel
   class Client < Memcached::Rails
+    autoload :Proxy, 'kestrel/client/proxy'
+    autoload :Envelope, 'kestrel/client/envelope'
+    autoload :Blocking, 'kestrel/client/blocking'
+    autoload :Unmarshal, 'kestrel/client/unmarshal'
+    autoload :Namespace, 'kestrel/client/namespace'
+
     QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
 
     def flush(queue)

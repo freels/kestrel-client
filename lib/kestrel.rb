@@ -2,10 +2,8 @@ require 'yaml'
 require 'socket'
 require 'memcached'
 
-require 'kestrel/config'
 require 'kestrel/client'
-require 'kestrel/client/proxy'
-require 'kestrel/client/envelope'
-require 'kestrel/client/blocking'
-require 'kestrel/client/unmarshal'
-require 'kestrel/client/namespace'
+
+module Kestrel
+  autoload :Config, 'kestrel/config'
+end
