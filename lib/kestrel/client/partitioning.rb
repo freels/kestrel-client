@@ -28,7 +28,7 @@ module Kestrel
       end
 
       def client_for(key)
-        @clients[key.to_s] || default_client
+        @clients[key.to_s.split('/', 2).first] || default_client
       end
     end
   end

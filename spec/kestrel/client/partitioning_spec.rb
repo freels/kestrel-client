@@ -18,8 +18,8 @@ describe Kestrel::Client::Partitioning do
         mock(@client_2).__send__(method, 'queue2')
         @kestrel.send(method, 'queue2')
 
-        mock(@client_2).__send__(method, 'queue3')
-        @kestrel.send(method, 'queue3')
+        mock(@client_2).__send__(method, 'queue3/queue_arg')
+        @kestrel.send(method, 'queue3/queue_arg')
 
         mock(@default_client).__send__(method, 'queue4')
         @kestrel.send(method, 'queue4')
