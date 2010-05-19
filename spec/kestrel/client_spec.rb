@@ -3,7 +3,6 @@ require File.expand_path(File.dirname(__FILE__) + '/../spec_helper')
 describe Kestrel::Client do
   describe "Instance Methods" do
     before do
-      Kestrel::Config.load TEST_CONFIG_FILE
       @kestrel = Kestrel::Client.new(*Kestrel::Config.default)
       stub(@kestrel).with_timing(anything) { |_, block| block.call }
     end
@@ -45,13 +44,14 @@ describe Kestrel::Client do
 
     describe "#stats" do
       it "retrieves stats" do
+        @kestrel.set("test-queue-name", 97)
+
         stats = @kestrel.stats
         %w{uptime time version curr_items total_items bytes curr_connections total_connections
            cmd_get cmd_set get_hits get_misses bytes_read bytes_written queues}.each do |stat|
           stats[stat].should_not be_nil
         end
 
-        @kestrel.set("test-queue-name", 97)
         stats['queues']["test-queue-name"].should_not be_nil
         Kestrel::Client::QUEUE_STAT_NAMES.each do |queue_stat|
           stats['queues']['test-queue-name'][queue_stat].should_not be_nil

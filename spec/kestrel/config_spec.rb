@@ -2,9 +2,6 @@ require File.expand_path(File.dirname(__FILE__) + '/../spec_helper')
 
 describe Kestrel::Config do
   before do
-    Kestrel::Config.environment = nil
-    Kestrel::Config.load TEST_CONFIG_FILE
-
     # to sniff namespace foo_space
     Kestrel::Config.config['foo_space']['development']['connect_timeout'] = 8
   end

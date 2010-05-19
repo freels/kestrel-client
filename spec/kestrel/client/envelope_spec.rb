@@ -5,7 +5,6 @@ class Envelope; end
 describe Kestrel::Client::Envelope do
   describe "Instance Methods" do
     before do
-      Kestrel::Config.load TEST_CONFIG_FILE
       @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
       @kestrel = Kestrel::Client::Envelope.new(Envelope, @raw_kestrel_client)
     end

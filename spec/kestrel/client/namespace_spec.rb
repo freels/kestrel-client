@@ -3,7 +3,6 @@ require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
 describe Kestrel::Client::Namespace do
   describe "Instance Methods" do
     before do
-      Kestrel::Config.load TEST_CONFIG_FILE
       @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
       @kestrel = Kestrel::Client::Namespace.new('some_namespace', @raw_kestrel_client)
     end
