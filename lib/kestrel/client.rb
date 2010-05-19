@@ -3,9 +3,11 @@ module Kestrel
     autoload :Proxy, 'kestrel/client/proxy'
     autoload :Envelope, 'kestrel/client/envelope'
     autoload :Blocking, 'kestrel/client/blocking'
+    autoload :Partitioning, 'kestrel/client/partitioning'
     autoload :Unmarshal, 'kestrel/client/unmarshal'
     autoload :Namespace, 'kestrel/client/namespace'
     autoload :Json, 'kestrel/client/json'
+
 
     QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
 
