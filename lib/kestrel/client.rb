@@ -7,6 +7,7 @@ module Kestrel
     autoload :Unmarshal, 'kestrel/client/unmarshal'
     autoload :Namespace, 'kestrel/client/namespace'
     autoload :Json, 'kestrel/client/json'
+    autoload :Reliable, "kestrel/client/reliable"
 
 
     QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
