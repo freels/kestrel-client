@@ -72,7 +72,7 @@ module Kestrel
     end
 
     def extract_queue_commands(opts)
-      commands = [:open, :close, :abort, :peek].select do
+      commands = [:open, :close, :abort, :peek].select do |key|
         opts[key]
       end
 
