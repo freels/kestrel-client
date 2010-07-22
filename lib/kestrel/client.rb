@@ -12,6 +12,28 @@ module Kestrel
 
     QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
 
+    # ==== Parameters
+    # key<String>:: Queue name
+    # opts<Boolean,Hash>:: True/false toggles Marshalling. A Hash
+    #                      allows collision-avoiding options support.
+    #
+    # ==== Options (opts)
+    # :open<Boolean>:: Begins a reliable read.
+    # :close<Boolean>:: Ends a reliable read.
+    # :abort<Boolean>:: Cancels an existing reliable read
+    # :peek<Boolean>:: Return the head of the queue, without removal
+    # :timeout<Integer>:: Milliseconds to block for a new item
+    # :raw<Boolean>:: Toggles Marshalling. Equivalent to the "old
+    #                 style" second argument.
+    #
+    def get(key, opts = false)
+      opts     = extract_options(opts)
+      raw      = opts.delete(:raw)
+      commands = extract_queue_commands(opts)
+
+      super key + commands, raw
+    end
+
     def flush(queue)
       count = 0
       while sizeof(queue) > 0
@@ -46,6 +68,20 @@ module Kestrel
     end
 
     private
+
+    def extract_options(opts)
+      opts.is_a?(Hash) ? opts : { :raw => !!opts }
+    end
+
+    def extract_queue_commands(opts)
+      commands = [:open, :close, :abort, :peek].select do
+        opts[key]
+      end
+
+      commands << "t=#{opts[:timeout]}" if opts[:timeout]
+
+      commands.map { |c| "/#{c}" }.join('')
+    end
 
     def stats_for_server(server)
       server_name, port = server.split(/:/)
