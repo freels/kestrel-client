@@ -1,7 +1,7 @@
 module Kestrel
   class Client
     class Blocking < Proxy
-      DEFAULT_TIMEOUT = 250
+      DEFAULT_TIMEOUT = 1000
 
       def get(key, opts = false)
         opts = extract_options(opts)
