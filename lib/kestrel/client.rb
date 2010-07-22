@@ -37,7 +37,7 @@ module Kestrel
     def flush(queue)
       count = 0
       while sizeof(queue) > 0
-        while get(queue, true)
+        while get queue, :raw => true
           count += 1
         end
       end
@@ -45,9 +45,7 @@ module Kestrel
     end
 
     def peek(queue)
-      val = get(queue)
-      set(queue, val)
-      val
+      get queue, :peek => true
     end
 
     def sizeof(queue)
