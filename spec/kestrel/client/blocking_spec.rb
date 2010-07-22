@@ -7,45 +7,6 @@ describe "Kestrel::Client::Blocking" do
       @kestrel = Kestrel::Client::Blocking.new(@raw_kestrel_client)
     end
 
-    describe "#set" do
-      before do
-        @queue = "some_queue"
-        @value = "some_value"
-      end
-
-      it "blocks on a set until the set works" do
-        @queue = "some_queue"
-        @value = "some_value"
-        mock(@raw_kestrel_client)\
-          .set(@queue, @value, anything, anything) { raise Memcached::Error }.then\
-          .set(@queue, @value, anything, anything) { :mcguffin }
-        mock(@kestrel).sleep(Kestrel::Client::Blocking::WAIT_TIME_BEFORE_RETRY).once
-        @kestrel.set(@queue, @value).should == :mcguffin
-      end
-
-      it "raises if two sets in a row fail" do
-        mock(@raw_kestrel_client)\
-          .set(@queue, @value, anything, anything) { raise Memcached::Error }.then\
-          .set(@queue, @value, anything, anything) { raise Memcached::Error }
-        mock(@kestrel).sleep(Kestrel::Client::Blocking::WAIT_TIME_BEFORE_RETRY).once
-        lambda { @kestrel.set(@queue, @value) }.should raise_error(Memcached::Error)
-      end
-
-      it "passes along the default expiry time if none is given" do
-        @queue = "some_queue"
-        @value = "some_value"
-        mock(@raw_kestrel_client).set(@queue, @value, Kestrel::Client::Blocking::DEFAULT_EXPIRY, anything)
-        @kestrel.set(@queue, @value)
-      end
-
-      it "passes along the given expiry time if one is passed in" do
-        @queue = "some_queue"
-        @value = "some_value"
-        mock(@raw_kestrel_client).set(@queue, @value, 60, anything)
-        @kestrel.set(@queue, @value, 60)
-      end
-    end
-
     describe "#get" do
       before do
         @queue = "some_queue"
