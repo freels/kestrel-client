@@ -13,7 +13,7 @@ describe "Kestrel::Client::Reliable" do
       end
 
       it "asks for a transaction" do
-        mock(@raw_kestrel_client).get(@queue + "/close/open") { :mcguffin }
+        mock(@raw_kestrel_client).get(@queue, :raw => false, :open => true, :close => true) { :mcguffin }
         @kestrel.get(@queue).should == :mcguffin
       end
     end

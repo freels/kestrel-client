@@ -13,17 +13,15 @@ describe "Kestrel::Client::Blocking" do
       end
 
       it "blocks on a get until the get works" do
-        mock(@raw_kestrel_client)\
-          .get(@queue) { nil }.then\
-          .get(@queue) { :mcguffin }
-        mock(@kestrel).sleep(Kestrel::Client::Blocking::WAIT_TIME_BEFORE_RETRY).once
+        mock(@raw_kestrel_client).
+          get(@queue, :raw => false, :timeout => Kestrel::Client::Blocking::DEFAULT_TIMEOUT) { nil }.then.
+          get(@queue, :raw => false, :timeout => Kestrel::Client::Blocking::DEFAULT_TIMEOUT) { :mcguffin }
         @kestrel.get(@queue).should == :mcguffin
       end
 
       describe "#get_without_blocking" do
         it "does not block" do
           mock(@raw_kestrel_client).get(@queue) { nil }
-          mock(@kestrel).sleep(Kestrel::Client::Blocking::WAIT_TIME_BEFORE_RETRY).never
           @kestrel.get_without_blocking(@queue).should be_nil
         end
       end
