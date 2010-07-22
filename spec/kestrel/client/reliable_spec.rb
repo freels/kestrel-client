@@ -53,6 +53,16 @@ describe "Kestrel::Client::Reliable" do
         @kestrel.get(@queue).should be_nil
       end
 
+      it "returns the payload of a RetryableJob" do
+        stub(@kestrel).rand { 0 }
+        mock(@raw_kestrel_client).get(@queue + "_errors", anything) do
+          Kestrel::Client::Reliable::RetryableJob.new(1, :mcmuffin)
+        end
+
+        @kestrel.get(@queue).should == :mcmuffin
+        @kestrel.current_try.should == 2
+      end
+
     end
 
     describe "#abort" do

@@ -38,7 +38,7 @@ module Kestrel
       end
 
       def current_try
-        @job ? 1 : @job.retries + 1
+        @job ? @job.retries + 1 : 1
       end
 
       # Enqueues the current job on the error queue for later
