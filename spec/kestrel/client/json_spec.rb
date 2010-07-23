@@ -1,7 +1,5 @@
 require 'spec/spec_helper'
 
-require 'kestrel/client/json'
-
 describe Kestrel::Client::Json do
   describe "Instance Methods" do
     before do
