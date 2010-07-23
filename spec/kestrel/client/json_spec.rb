@@ -1,6 +1,4 @@
-require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
-
-require 'kestrel/client/json'
+require 'spec/spec_helper'
 
 describe Kestrel::Client::Json do
   describe "Instance Methods" do
