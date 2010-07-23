@@ -34,6 +34,27 @@ module Kestrel
       super key + commands, raw
     end
 
+    # ==== Parameters
+    # key<String>:: Queue name
+    # opts<Boolean,Hash>:: True/false toggles Marshalling. A Hash
+    #                      allows collision-avoiding options support.
+    #
+    # ==== Options (opts)
+    # :open<Boolean>:: Begins a reliable read.
+    # :close<Boolean>:: Ends a reliable read.
+    # :abort<Boolean>:: Cancels an existing reliable read
+    # :peek<Boolean>:: Return the head of the queue, without removal
+    # :timeout<Integer>:: Milliseconds to block for a new item
+    # :raw<Boolean>:: Toggles Marshalling. Equivalent to the "old
+    #                 style" second argument.
+    #
+    def get_from_last(key, opts = {})
+      opts     = extract_options(opts)
+      commands = extract_queue_commands(opts)
+
+      super key + commands
+    end
+
     def flush(queue)
       count = 0
       while sizeof(queue) > 0

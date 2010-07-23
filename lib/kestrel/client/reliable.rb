@@ -1,6 +1,7 @@
 module Kestrel
   class Client
     class Reliable < Proxy
+      class RetryableJob < Struct.new(:retries, :job); end
 
       # Number of times to retry a job before giving up
       DEFAULT_RETRIES = 100
@@ -35,6 +36,8 @@ module Kestrel
         opts = extract_options(opts)
         opts.merge! :close => true, :open => true
 
+        close_open_transaction! if @job
+
         job =
           if rand < @error_rate
             client.get(key + "_errors", opts) || client.get(key, opts)
@@ -63,7 +66,11 @@ module Kestrel
       # Boolean:: true if the job is retryable, false otherwise
       #
       def retry
+        return unless @job
+
+        close_open_transaction!
         @job.retries += 1
+
         if @job.retries < @retry_count
           client.set(@key + "_errors", @job)
           true
@@ -72,7 +79,14 @@ module Kestrel
         end
       end
 
-      class RetryableJob < Struct.new(:retries, :job)
+      private
+
+      def close_open_transaction! #:nodoc:
+        if @job.retries == 0
+          client.get_from_last(@key, :close => true, :open => false)
+        else
+          client.get_from_last(@key + "_errors", :close => true, :open => false)
+        end
       end
     end
   end

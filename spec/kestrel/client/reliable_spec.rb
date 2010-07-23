@@ -61,6 +61,24 @@ describe "Kestrel::Client::Reliable" do
         @kestrel.current_try.should == 2
       end
 
+      it "closes an open transaction with no retries" do
+        stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue, :close => true, :open => false)
+        @kestrel.get(@queue)
+      end
+
+      it "closes an open transaction with retries" do
+        stub(@kestrel).rand { 0 }
+        stub(@raw_kestrel_client).get(@queue + "_errors", anything) do
+          Kestrel::Client::Reliable::RetryableJob.new(1, :mcmuffin)
+        end
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
+        @kestrel.get(@queue)
+      end
     end
 
     describe "#current_try" do
@@ -89,6 +107,7 @@ describe "Kestrel::Client::Reliable" do
     describe "#retry" do
       before do
         stub(@raw_kestrel_client).get(@queue, anything) { :mcmuffin }
+        stub(@raw_kestrel_client).get_from_last
         @kestrel.get(@queue)
       end
 
@@ -123,6 +142,25 @@ describe "Kestrel::Client::Reliable" do
         mock(@raw_kestrel_client).set(@queue + "_errors", anything).never
         @kestrel.get(@queue)
         @kestrel.retry.should be_false
+      end
+
+      it "closes an open transaction with no retries" do
+        stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue, :close => true, :open => false)
+        @kestrel.retry
+      end
+
+      it "closes an open transaction with retries" do
+        stub(@kestrel).rand { 0 }
+        stub(@raw_kestrel_client).get(@queue + "_errors", anything) do
+          Kestrel::Client::Reliable::RetryableJob.new(1, :mcmuffin)
+        end
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
+        @kestrel.retry
       end
 
     end
