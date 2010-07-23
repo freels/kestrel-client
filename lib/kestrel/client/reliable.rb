@@ -8,6 +8,20 @@ module Kestrel
       # Pct. of the time during 'normal' processing we check the error queue first
       ERROR_PROCESSING_RATE = 0.1
 
+      # ==== Parameters
+      # client<Kestrel::Client>:: Client
+      # retry_count<Integer>:: Number of times to retry a job before
+      #                        giving up. Defaults to DEFAULT_RETRIES
+      # error_rate<Float>:: Pct. of the time during 'normal'
+      #                     processing we check the error queue
+      #                     first. Defaults to ERROR_PROCESSING_RATE
+      #
+      def initialize(client, retry_count = nil, error_rate = nil)
+        @retry_count = retry_count || DEFAULT_RETRIES
+        @error_rate  = error_rate || ERROR_PROCESSING_RATE
+        super(client)
+      end
+
       # Returns job from the +key+ queue 1 - ERROR_PROCESSING_RATE
       # pct. of the time. Every so often, checks the error queue for
       # jobs and returns a retryable job. If either the error queue or
@@ -22,7 +36,7 @@ module Kestrel
         opts.merge! :close => true, :open => true
 
         job =
-          if rand < ERROR_PROCESSING_RATE
+          if rand < @error_rate
             client.get(key + "_errors", opts) || client.get(key, opts)
           else
             client.get(key, opts) || client.get(key + "_errors", opts)
@@ -50,7 +64,7 @@ module Kestrel
       #
       def retry
         @job.retries += 1
-        if @job.retries < DEFAULT_RETRIES
+        if @job.retries < @retry_count
           client.set(@key + "_errors", @job)
           true
         else
