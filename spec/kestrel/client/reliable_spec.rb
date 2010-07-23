@@ -65,15 +65,5 @@ describe "Kestrel::Client::Reliable" do
 
     end
 
-    describe "#abort" do
-      before do
-        @queue = "some_queue"
-      end
-
-      it "can abort" do
-        mock(@raw_kestrel_client).get_from_last(@queue + "/abort") { nil }
-        @kestrel.abort(@queue)
-      end
-    end
   end
 end

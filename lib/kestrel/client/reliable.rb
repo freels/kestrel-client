@@ -58,10 +58,6 @@ module Kestrel
         end
       end
 
-      def abort(key)
-        client.get_from_last(key + "/abort")
-      end
-
       class RetryableJob < Struct.new(:retries, :job)
       end
     end
