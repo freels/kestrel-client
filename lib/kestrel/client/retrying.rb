@@ -21,8 +21,8 @@ module Kestrel
                             Memcached::WriteFailure
                            ]
 
-      def initialize(client)
-        @retry_count = DEFAULT_RETRY_COUNT
+      def initialize(client, retry_count = nil)
+        @retry_count = retry_count || DEFAULT_RETRY_COUNT
         super(client)
       end
 
