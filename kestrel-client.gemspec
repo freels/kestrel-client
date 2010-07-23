@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{kestrel-client}
-  s.version = "0.3.1"
+  s.version = "0.4.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Matt Freels", "Rael Dornfest"]
-  s.date = %q{2010-05-18}
+  s.date = %q{2010-07-22}
   s.description = %q{Ruby client for the Kestrel queue server}
   s.email = %q{rael@twitter.com}
   s.extra_rdoc_files = [
@@ -30,6 +30,8 @@ Gem::Specification.new do |s|
      "lib/kestrel/client/namespace.rb",
      "lib/kestrel/client/partitioning.rb",
      "lib/kestrel/client/proxy.rb",
+     "lib/kestrel/client/reliable.rb",
+     "lib/kestrel/client/retrying.rb",
      "lib/kestrel/client/unmarshal.rb",
      "lib/kestrel/config.rb",
      "spec/kestrel/client/blocking_spec.rb",
@@ -37,6 +39,8 @@ Gem::Specification.new do |s|
      "spec/kestrel/client/json_spec.rb",
      "spec/kestrel/client/namespace_spec.rb",
      "spec/kestrel/client/partitioning_spec.rb",
+     "spec/kestrel/client/reliable_spec.rb",
+     "spec/kestrel/client/retrying_spec.rb",
      "spec/kestrel/client/unmarshal_spec.rb",
      "spec/kestrel/client_spec.rb",
      "spec/kestrel/config/kestrel.yml",
@@ -47,7 +51,7 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://github.com/freels/kestrel-client}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.6}
+  s.rubygems_version = %q{1.3.7}
   s.summary = %q{Ruby Kestrel client}
   s.test_files = [
     "spec/kestrel/client/blocking_spec.rb",
@@ -55,6 +59,8 @@ Gem::Specification.new do |s|
      "spec/kestrel/client/json_spec.rb",
      "spec/kestrel/client/namespace_spec.rb",
      "spec/kestrel/client/partitioning_spec.rb",
+     "spec/kestrel/client/reliable_spec.rb",
+     "spec/kestrel/client/retrying_spec.rb",
      "spec/kestrel/client/unmarshal_spec.rb",
      "spec/kestrel/client_spec.rb",
      "spec/kestrel/config_spec.rb",
@@ -65,7 +71,7 @@ Gem::Specification.new do |s|
     current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
     s.specification_version = 3
 
-    if Gem::Version.new(Gem::RubyGemsVersion) >= Gem::Version.new('1.2.0') then
+    if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
       s.add_runtime_dependency(%q<memcached>, [">= 0"])
     else
       s.add_dependency(%q<memcached>, [">= 0"])
