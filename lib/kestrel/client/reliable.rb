@@ -1,5 +1,12 @@
 module Kestrel
   class Client
+    #--
+    # TODO: Pull out the transaction management logic into
+    #       Client. This class should only be responsible for the
+    #       retry semantics.
+    # TODO: Ensure that errors are pushed onto the error queue on the
+    #       same server on which the error occurred.
+    #++
     class Reliable < Proxy
       class RetryableJob < Struct.new(:retries, :job); end
 
@@ -9,6 +16,9 @@ module Kestrel
       # Pct. of the time during 'normal' processing we check the error queue first
       ERROR_PROCESSING_RATE = 0.1
 
+      # Maximum number of gets to execute before switching servers
+      MAX_PER_SERVER = 100_000
+
       # ==== Parameters
       # client<Kestrel::Client>:: Client
       # retry_count<Integer>:: Number of times to retry a job before
@@ -16,10 +26,15 @@ module Kestrel
       # error_rate<Float>:: Pct. of the time during 'normal'
       #                     processing we check the error queue
       #                     first. Defaults to ERROR_PROCESSING_RATE
+      # per_server<Integer>:: Number of gets to execute against a
+      #                       single server, before changing
+      #                       servers. Defaults to MAX_PER_SERVER
       #
-      def initialize(client, retry_count = nil, error_rate = nil)
+      def initialize(client, retry_count = nil, error_rate = nil, per_server = nil)
         @retry_count = retry_count || DEFAULT_RETRIES
         @error_rate  = error_rate || ERROR_PROCESSING_RATE
+        @per_server  = per_server || MAX_PER_SERVER
+        @counter     = 0 # Command counter
         super(client)
       end
 
@@ -33,16 +48,11 @@ module Kestrel
       # Job, possibly retryable, or nil
       #
       def get(key, opts = false)
-        opts = extract_options(opts)
-        opts.merge! :close => true, :open => true
-
-        close_open_transaction! if @job
-
         job =
           if rand < @error_rate
-            client.get(key + "_errors", opts) || client.get(key, opts)
+            get_with_fallback(key + "_errors", key, opts)
           else
-            client.get(key, opts) || client.get(key + "_errors", opts)
+            get_with_fallback(key, key + "_errors", opts)
           end
 
         if job
@@ -80,6 +90,36 @@ module Kestrel
       end
 
       private
+
+      # If a get against the +primary+ queue is nil, falls back to the
+      # +secondary+ queue.
+      #
+      # Also, this executes a get on the first request, then a get_from_last
+      # on each ensuing request for @per_server requests. This keeps the
+      # client "attached" to a single server for a period of time.
+      #
+      def get_with_fallback(primary, secondary, opts) #:nodoc:
+        opts = extract_options(opts)
+        opts.merge! :close => true, :open => true
+
+        if @counter == 0
+          close_open_transaction! if @job
+          @counter += 1
+          command = :get
+        elsif @counter < @per_server
+          # Open transactions are implicitly closed, here.
+          # FIXME: If the client switches queues, it is possible to
+          #        leave an open txn on the old queue, in this branch.
+          @counter += 1
+          command = :get_from_last
+        else
+          close_open_transaction! if @job
+          @counter = 0
+          command = :get
+        end
+
+        client.send(command, primary, opts) || client.send(command, secondary, opts)
+      end
 
       def close_open_transaction! #:nodoc:
         if @job.retries == 0

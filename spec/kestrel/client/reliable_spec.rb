@@ -4,7 +4,7 @@ describe "Kestrel::Client::Reliable" do
   describe "Instance Methods" do
     before do
       @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
-      @kestrel = Kestrel::Client::Reliable.new(@raw_kestrel_client)
+      @kestrel = Kestrel::Client::Reliable.new(@raw_kestrel_client, nil, nil, 1)
       stub(@kestrel).rand { 1 }
       @queue = "some_queue"
     end
