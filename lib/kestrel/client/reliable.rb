@@ -8,6 +8,10 @@ module Kestrel
     #       same server on which the error occurred.
     #++
     class Reliable < Proxy
+      # Raised when a caller attempts to use this proxy across
+      # multiple queues.
+      class MultipleQueueException < StandardError; end
+
       class RetryableJob < Struct.new(:retries, :job); end
 
       # Number of times to retry a job before giving up
@@ -48,6 +52,8 @@ module Kestrel
       # Job, possibly retryable, or nil
       #
       def get(key, opts = false)
+        raise MultipleQueueException if @key && key != @key
+
         job =
           if rand < @error_rate
             get_with_fallback(key + "_errors", key, opts)
@@ -108,8 +114,6 @@ module Kestrel
           command = :get
         elsif @counter < @per_server
           # Open transactions are implicitly closed, here.
-          # FIXME: If the client switches queues, it is possible to
-          #        leave an open txn on the old queue, in this branch.
           @counter += 1
           command = :get_from_last
         else

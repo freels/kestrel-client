@@ -106,6 +106,15 @@ describe "Kestrel::Client::Reliable" do
         mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
         @kestrel.get(@queue)
       end
+
+      it "prevents transactional gets across multiple queues" do
+        stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+
+        lambda do
+          @kestrel.get("transaction_fail")
+        end.should raise_error(Kestrel::Client::Reliable::MultipleQueueException)
+      end
     end
 
     describe "#current_try" do
