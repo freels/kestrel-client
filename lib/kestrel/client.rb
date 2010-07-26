@@ -50,9 +50,10 @@ module Kestrel
     #
     def get_from_last(key, opts = {})
       opts     = extract_options(opts)
+      raw      = opts.delete(:raw)
       commands = extract_queue_commands(opts)
 
-      super key + commands
+      super key + commands, raw
     end
 
     def flush(queue)
