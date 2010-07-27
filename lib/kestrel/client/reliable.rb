@@ -3,8 +3,6 @@ module Kestrel
     #--
     # TODO: Pull out the sticky server logic into Client. This class
     #       should only be responsible for the retry semantics.
-    # TODO: Ensure that errors are pushed onto the error queue on the
-    #       same server on which the error occurred.
     #++
     class Reliable < Proxy
       # Raised when a caller attempts to use this proxy across
