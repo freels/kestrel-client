@@ -1,10 +1,37 @@
 require 'spec/spec_helper'
 
 describe "Kestrel::Client::Reliable" do
+  describe "Sticky" do
+    before do
+      @max_requests = 2
+      @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
+      @kestrel = Kestrel::Client::Reliable.new(@raw_kestrel_client, nil, nil, @max_requests)
+      stub(@kestrel).rand { 1 }
+      @queue = "some_queue"
+    end
+
+    describe "#get" do
+
+      it 'does a get on the first request' do
+        mock(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+      end
+
+      it 'does a get_from_last a number of times, then a get' do
+        mock(@raw_kestrel_client).get(@queue, anything).twice { :mcguffin }
+        mock(@raw_kestrel_client).get_from_last(@queue, anything).twice { :mcguffin }
+
+        @kestrel.get(@queue) # Initial get
+        @kestrel.get(@queue) # get_from_last
+        @kestrel.get(@queue) # get_from_last txn close, get
+      end
+    end
+  end
+
   describe "Instance Methods" do
     before do
       @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
-      @kestrel = Kestrel::Client::Reliable.new(@raw_kestrel_client)
+      @kestrel = Kestrel::Client::Reliable.new(@raw_kestrel_client, nil, nil, 1)
       stub(@kestrel).rand { 1 }
       @queue = "some_queue"
     end
@@ -61,6 +88,33 @@ describe "Kestrel::Client::Reliable" do
         @kestrel.current_try.should == 2
       end
 
+      it "closes an open transaction with no retries" do
+        stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue, :close => true, :open => false)
+        @kestrel.get(@queue)
+      end
+
+      it "closes an open transaction with retries" do
+        stub(@kestrel).rand { 0 }
+        stub(@raw_kestrel_client).get(@queue + "_errors", anything) do
+          Kestrel::Client::Reliable::RetryableJob.new(1, :mcmuffin)
+        end
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
+        @kestrel.get(@queue)
+      end
+
+      it "prevents transactional gets across multiple queues" do
+        stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+
+        lambda do
+          @kestrel.get("transaction_fail")
+        end.should raise_error(Kestrel::Client::Reliable::MultipleQueueException)
+      end
     end
 
     describe "#current_try" do
@@ -89,6 +143,7 @@ describe "Kestrel::Client::Reliable" do
     describe "#retry" do
       before do
         stub(@raw_kestrel_client).get(@queue, anything) { :mcmuffin }
+        stub(@raw_kestrel_client).get_from_last
         @kestrel.get(@queue)
       end
 
@@ -123,6 +178,25 @@ describe "Kestrel::Client::Reliable" do
         mock(@raw_kestrel_client).set(@queue + "_errors", anything).never
         @kestrel.get(@queue)
         @kestrel.retry.should be_false
+      end
+
+      it "closes an open transaction with no retries" do
+        stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue, :close => true, :open => false)
+        @kestrel.retry
+      end
+
+      it "closes an open transaction with retries" do
+        stub(@kestrel).rand { 0 }
+        stub(@raw_kestrel_client).get(@queue + "_errors", anything) do
+          Kestrel::Client::Reliable::RetryableJob.new(1, :mcmuffin)
+        end
+        @kestrel.get(@queue)
+
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
+        @kestrel.retry
       end
 
     end
