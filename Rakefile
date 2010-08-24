@@ -12,6 +12,12 @@ Spec::Rake::SpecTask.new(:spec) do |t|
   t.spec_files = FileList['spec/**/*_spec.rb']
 end
 
+desc "Run benchmarks"
+Spec::Rake::SpecTask.new(:benchmark) do |t|
+  t.spec_opts = ['--options', "\"#{ROOT_DIR}/spec/spec.opts\""]
+  t.spec_files = [File.expand_path('spec/kestrel_benchmark.rb')]
+end
+
 # gemification with jeweler
 begin
   require 'jeweler'
