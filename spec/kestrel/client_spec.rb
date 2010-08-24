@@ -4,7 +4,6 @@ describe Kestrel::Client do
   describe "Instance Methods" do
     before do
       @kestrel = Kestrel::Client.new(*Kestrel::Config.default)
-      stub(@kestrel).with_timing(anything) { |_, block| block.call }
     end
 
     describe "#get and #set" do
