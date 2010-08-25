@@ -5,6 +5,7 @@ module Kestrel
         loop do
           response = client.get(*args)
           return response if response
+          sleep 0.5
         end
       end
 

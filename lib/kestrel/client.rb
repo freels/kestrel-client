@@ -152,7 +152,7 @@ module Kestrel
         opts[key]
       end
 
-      if timeout = (opts[:timeout] || @default_get_timeout)
+      if timeout = (opts[:timeout])
         commands << "t=#{timeout}"
       end
 
