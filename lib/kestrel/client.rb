@@ -1,5 +1,5 @@
 module Kestrel
-  class Client < Memcached::Rails
+  class Client < Memcached
     require 'kestrel/client/stats_helper'
 
     autoload :Proxy, 'kestrel/client/proxy'
@@ -23,15 +23,54 @@ module Kestrel
 
     include StatsHelper
 
-    attr_reader :current_queue, :kestrel_options
 
-    alias get_from_random get
-
-    def initialize(servers = nil, opts = {})
+    def initialize(*servers)
+      opts = servers.last.is_a?(Hash) ? servers.pop : {}
       opts[:distribution] = :random # force random distribution
       opts = DEFAULT_OPTIONS.merge(opts)
-      super servers, extract_kestrel_options(opts)
+
+      super(Array(servers).flatten.compact, extract_kestrel_options(opts))
     end
+
+
+    attr_reader :current_queue, :kestrel_options
+
+
+    # Memcached overrides
+
+    undef add
+    undef append
+    undef cas
+    undef decr
+    undef incr
+    undef get_orig
+    undef prepend
+
+    alias _super_get_from_random get
+    private :_super_get_from_random
+
+    def get_from_random(key, raw=false)
+      _super_get_from_random(key, !raw)
+    rescue Memcached::NotFound
+    end
+
+    def get_from_last(key, raw=false)
+      super(key, !raw)
+    rescue Memcached::NotFound
+    end
+
+    def delete(key, expiry=0)
+      super(key)
+    rescue Memcached::NotFound, Memcached::ServerEnd
+    end
+
+    def set(key, value, ttl=0, raw=false)
+      super(key, value, ttl, !raw)
+      true
+    rescue Memcached::NotStored
+      false
+    end
+
 
     # ==== Parameters
     # key<String>:: Queue name
@@ -54,7 +93,7 @@ module Kestrel
       val =
         begin
           send(select_get_method(key), key + commands, raw)
-        rescue Memcached::NotFound, Memcached::ATimeoutOccurred, Memcached::ServerIsMarkedDead
+        rescue Memcached::ATimeoutOccurred, Memcached::ServerIsMarkedDead
           # we can't tell the difference between a server being down
           # and an empty queue, so just return nil. our sticky server
           # logic should eliminate piling on down servers
