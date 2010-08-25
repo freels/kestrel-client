@@ -10,24 +10,24 @@ describe Kestrel::Client::Unmarshal do
     describe "#get" do
       it "unmarshals marshaled objects" do
         test_object = {:a => 1, :b => [1, 2, 3]}
-        mock(@raw_kestrel_client).get('a_queue', true) { Marshal.dump(test_object) }
+        mock(@raw_kestrel_client).get('a_queue', :raw => true) { Marshal.dump(test_object) }
         @kestrel.get('a_queue').should == test_object
       end
 
       it "does not unmarshal when raw is true" do
         test_object = {:a => 1, :b => [1, 2, 3]}
-        mock(@raw_kestrel_client).get('a_queue', true) { Marshal.dump(test_object) }
-        @kestrel.get('a_queue', true).should == Marshal.dump(test_object)
+        mock(@raw_kestrel_client).get('a_queue', :raw => true) { Marshal.dump(test_object) }
+        @kestrel.get('a_queue', :raw => true).should == Marshal.dump(test_object)
       end
 
-      it "pasess through objects" do
+      it "passes through objects" do
         test_object = Object.new
-        mock(@raw_kestrel_client).get('a_queue', true) { test_object }
+        mock(@raw_kestrel_client).get('a_queue', :raw => true) { test_object }
         @kestrel.get('a_queue').should == test_object
       end
 
       it "passes through strings" do
-        mock(@raw_kestrel_client).get('a_queue', true) { "I am not marshaled" }
+        mock(@raw_kestrel_client).get('a_queue', :raw => true) { "I am not marshaled" }
         @kestrel.get('a_queue').should == "I am not marshaled"
       end
     end

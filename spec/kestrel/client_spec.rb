@@ -18,8 +18,8 @@ describe Kestrel::Client do
       end
 
       it "gets from the same server :gets_per_server times" do
-        mock(@kestrel).get_from_last("a_queue", nil).times(100)
-        mock(@kestrel).get_from_random("a_queue", nil).times(2)
+        mock(@kestrel).get_from_last("a_queue", false).times(100)
+        mock(@kestrel).get_from_random("a_queue", false).times(2)
 
         102.times { @kestrel.get("a_queue") }
       end

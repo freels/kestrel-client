@@ -36,7 +36,7 @@ module Kestrel
     #                 style" second argument.
     #
     def get(key, opts = {})
-      raw = opts.delete(:raw)
+      raw = opts.delete(:raw) || false
       commands = extract_queue_commands(opts)
 
       get_from_random_or_last(key + commands, raw)

@@ -1,9 +1,10 @@
 module Kestrel
   class Client
     class Unmarshal < Proxy
-      def get(keys, raw = false)
-        response = client.get(keys, true)
-        return response if raw
+      def get(key, opts = {})
+        response = client.get(key, opts.merge(:raw => true))
+        return response if opts[:raw]
+
         if is_marshaled?(response)
           Marshal.load_with_constantize(response, loaded_constants = [])
         else
