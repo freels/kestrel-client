@@ -8,6 +8,11 @@ describe Kestrel::Client::Unmarshal do
     end
 
     describe "#get" do
+      it "integrates" do
+        @kestrel.set('a_queue', "foo")
+        @kestrel.get('a_queue').should == 'foo'
+      end
+
       it "unmarshals marshaled objects" do
         test_object = {:a => 1, :b => [1, 2, 3]}
         mock(@raw_kestrel_client).get('a_queue', :raw => true) { Marshal.dump(test_object) }

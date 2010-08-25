@@ -19,6 +19,8 @@ module Kestrel
       super
     end
 
+    attr_reader :current_queue
+
     alias get_from_random get
 
     # ==== Parameters
@@ -39,23 +41,7 @@ module Kestrel
       raw = opts.delete(:raw) || false
       commands = extract_queue_commands(opts)
 
-      get_from_random_or_last(key + commands, raw)
-    end
-
-    def get_from_random_or_last(key, raw = false)
-      @counter ||= 0
-
-      op =
-        if key != @current_queue || @counter >= @gets_per_server
-          @counter = 0
-          @current_queue = key
-          :get_from_random
-        else
-          @counter +=1
-          :get_from_last
-        end
-
-      send(op, key, raw)
+      send(select_get_method(key), key + commands, raw)
     rescue Memcached::NotFound
       nil
     end
@@ -93,7 +79,22 @@ module Kestrel
 
     private
 
+    def select_get_method(key)
+      @counter ||= 0
+
+      if key != @current_queue || @counter >= @gets_per_server
+        @counter = 0
+        @current_queue = key
+        :get_from_random
+      else
+        @counter +=1
+        :get_from_last
+      end
+    end
+
     def extract_queue_commands(opts)
+      opts.update(:open => true, :close => true) if opts[:transactional]
+
       commands = [:open, :close, :abort, :peek].select do |key|
         opts[key]
       end
