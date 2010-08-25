@@ -32,6 +32,18 @@ describe Kestrel::Client do
       end
     end
 
+    describe "retry behavior" do
+      it "does not retry gets" do
+        mock(@kestrel).with_retries.never
+        @kestrel.get("a_queue")
+      end
+
+      it "retries sets" do
+        mock(@kestrel).with_retries
+        @kestrel.set("a_queue", "value")
+      end
+    end
+
     describe "#flush" do
       before do
         @queue = "some_random_queue_#{Time.now.to_i}_#{rand(10000)}"
@@ -56,6 +68,33 @@ describe Kestrel::Client do
         @kestrel.set(@queue, "item_2")
         @kestrel.peek(@queue).should == "item_1"
         @kestrel.sizeof(@queue).should == 2
+      end
+    end
+
+    describe "#with_retries" do
+      it "retries a specified number of times" do
+        mock(@kestrel).set(anything, anything) { raise Memcached::SystemError }.times(6)
+
+        lambda do
+          @kestrel.send(:with_retries) { @kestrel.set("a_queue", "foo") }
+        end.should raise_error(Memcached::SystemError)
+      end
+
+      it "does not raise if within the retry limit" do
+        mock(@kestrel).set(anything, anything) { raise Memcached::SystemError }.times(5).
+          then.set(anything, anything) { true }
+
+        lambda do
+          @kestrel.send(:with_retries) { @kestrel.set("a_queue", "foo") }
+        end.should_not raise_error(Memcached::SystemError)
+      end
+
+      it "does not catch unknown errors" do
+        mock(@kestrel).set(anything, anything) { raise ArgumentError }
+
+        lambda do
+          @kestrel.send(:with_retries) { @kestrel.set("a_queue", "foo") }
+        end.should raise_error(ArgumentError)
       end
     end
 

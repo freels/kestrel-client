@@ -1,6 +1,7 @@
 module Kestrel
   class Client < Memcached
     require 'kestrel/client/stats_helper'
+    require 'kestrel/client/retry_helper'
 
     autoload :Proxy, 'kestrel/client/proxy'
     autoload :Envelope, 'kestrel/client/envelope'
@@ -10,26 +11,36 @@ module Kestrel
     autoload :Namespace, 'kestrel/client/namespace'
     autoload :Json, 'kestrel/client/json'
     autoload :Reliable, "kestrel/client/reliable"
-    autoload :Retrying, "kestrel/client/retrying"
 
-    KESTREL_OPTIONS = [:gets_per_server, :no_wait].freeze
+    KESTREL_OPTIONS = [:gets_per_server, :no_wait, :exception_retry_limit].freeze
 
     DEFAULT_OPTIONS = {
       :retry_timeout => 0,
-      :exception_retry_limit => 0,
+      :exception_retry_limit => 5,
       :timeout => 0.25,
       :gets_per_server => 100
     }.freeze
 
     include StatsHelper
+    include RetryHelper
 
 
     def initialize(*servers)
       opts = servers.last.is_a?(Hash) ? servers.pop : {}
-      opts[:distribution] = :random # force random distribution
       opts = DEFAULT_OPTIONS.merge(opts)
 
-      super(Array(servers).flatten.compact, extract_kestrel_options(opts))
+      @kestrel_options = extract_kestrel_options!(opts)
+      @default_get_timeout = (opts[:timeout] * 1000).to_i unless kestrel_options[:no_wait]
+      @gets_per_server = kestrel_options[:gets_per_server]
+      @exception_retry_limit = kestrel_options[:exception_retry_limit]
+      @counter = 0
+
+      # we handle our own retries so that we can apply different
+      # policies to sets and gets, so set memcached limit to 0
+      opts[:exception_retry_limit] = 0
+      opts[:distribution] = :random # force random distribution
+
+      super Array(servers).flatten.compact, opts
     end
 
 
@@ -38,34 +49,30 @@ module Kestrel
 
     # Memcached overrides
 
-    undef add
-    undef append
-    undef cas
-    undef decr
-    undef incr
-    undef get_orig
-    undef prepend
+    %w(add append cas decr incr get_orig prepend).each do |m|
+      undef_method m
+    end
 
     alias _super_get_from_random get
     private :_super_get_from_random
 
     def get_from_random(key, raw=false)
-      _super_get_from_random(key, !raw)
+      _super_get_from_random key, !raw
     rescue Memcached::NotFound
     end
 
     def get_from_last(key, raw=false)
-      super(key, !raw)
+      super key, !raw
     rescue Memcached::NotFound
     end
 
     def delete(key, expiry=0)
-      super(key)
+      with_retries { super key }
     rescue Memcached::NotFound, Memcached::ServerEnd
     end
 
     def set(key, value, ttl=0, raw=false)
-      super(key, value, ttl, !raw)
+      with_retries { super key, value, ttl, !raw }
       true
     rescue Memcached::NotStored
       false
@@ -109,9 +116,7 @@ module Kestrel
     def flush(queue)
       count = 0
       while sizeof(queue) > 0
-        while get queue, :raw => true
-          count += 1
-        end
+        count += 1 while get queue, :raw => true
       end
       count
     end
@@ -122,18 +127,18 @@ module Kestrel
 
     private
 
-    def extract_kestrel_options(opts)
-      @kestrel_options, opts = opts.inject([{}, {}]) do |(kestrel, memcache), (key, opt)|
+    attr_reader :default_get_timeout
+
+    def extract_kestrel_options!(opts)
+      kestrel_opts, memcache_opts = opts.inject([{}, {}]) do |(kestrel, memcache), (key, opt)|
         (KESTREL_OPTIONS.include?(key) ? kestrel : memcache)[key] = opt
         [kestrel, memcache]
       end
-      opts
+      opts.replace(memcache_opts)
+      kestrel_opts
     end
 
     def select_get_method(key)
-      @counter ||= 0
-      @gets_per_server ||= kestrel_options[:gets_per_server]
-
       if key != @current_queue || @counter >= @gets_per_server
         @counter = 0
         @current_queue = key
@@ -154,10 +159,6 @@ module Kestrel
       end
 
       commands.map { |c| "/#{c}" }.join('')
-    end
-
-    def default_get_timeout
-      @default_timeout ||= (options[:timeout] * 1000).to_i unless kestrel_options[:no_wait]
     end
   end
 end
