@@ -1,5 +1,7 @@
 module Kestrel
   class Client < Memcached::Rails
+    require 'kestrel/client/stats_helper'
+
     autoload :Proxy, 'kestrel/client/proxy'
     autoload :Envelope, 'kestrel/client/envelope'
     autoload :Blocking, 'kestrel/client/blocking'
@@ -10,18 +12,26 @@ module Kestrel
     autoload :Reliable, "kestrel/client/reliable"
     autoload :Retrying, "kestrel/client/retrying"
 
-    QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
+    KESTREL_OPTIONS = [:gets_per_server, :no_wait].freeze
 
-    DEFAULT_GETS_PER_SERVER = 100
+    DEFAULT_OPTIONS = {
+      :retry_timeout => 0,
+      :exception_retry_limit => 0,
+      :timeout => 0.25,
+      :gets_per_server => 100
+    }.freeze
 
-    def initialize(servers = nil, opts = {})
-      @gets_per_server = opts.delete(:gets_per_server) || DEFAULT_GETS_PER_SERVER
-      super
-    end
+    include StatsHelper
 
-    attr_reader :current_queue
+    attr_reader :current_queue, :kestrel_options
 
     alias get_from_random get
+
+    def initialize(servers = nil, opts = {})
+      opts[:distribution] = :random # force random distribution
+      opts = DEFAULT_OPTIONS.merge(opts)
+      super servers, extract_kestrel_options(opts)
+    end
 
     # ==== Parameters
     # key<String>:: Queue name
@@ -41,9 +51,20 @@ module Kestrel
       raw = opts.delete(:raw) || false
       commands = extract_queue_commands(opts)
 
-      send(select_get_method(key), key + commands, raw)
-    rescue Memcached::NotFound
-      nil
+      val =
+        begin
+          send(select_get_method(key), key + commands, raw)
+        rescue Memcached::NotFound, Memcached::ATimeoutOccurred, Memcached::ServerIsMarkedDead
+          # we can't tell the difference between a server being down
+          # and an empty queue, so just return nil. our sticky server
+          # logic should eliminate piling on down servers
+          nil
+        end
+
+      # nil result, force next get to jump from current server
+      @counter = @gets_per_server unless val
+
+      val
     end
 
     def flush(queue)
@@ -60,27 +81,19 @@ module Kestrel
       get queue, :peek => true
     end
 
-    def sizeof(queue)
-      stat_info = stat(queue)
-      stat_info ? stat_info['items'] : 0
-    end
-
-    def available_queues
-      stats['queues'].keys.sort
-    end
-
-    def stats
-      merge_stats(servers.map { |server| stats_for_server(server) })
-    end
-
-    def stat(queue)
-      stats['queues'][queue]
-    end
-
     private
+
+    def extract_kestrel_options(opts)
+      @kestrel_options, opts = opts.inject([{}, {}]) do |(kestrel, memcache), (key, opt)|
+        (KESTREL_OPTIONS.include?(key) ? kestrel : memcache)[key] = opt
+        [kestrel, memcache]
+      end
+      opts
+    end
 
     def select_get_method(key)
       @counter ||= 0
+      @gets_per_server ||= kestrel_options[:gets_per_server]
 
       if key != @current_queue || @counter >= @gets_per_server
         @counter = 0
@@ -93,72 +106,19 @@ module Kestrel
     end
 
     def extract_queue_commands(opts)
-      opts.update(:open => true, :close => true) if opts[:transactional]
-
       commands = [:open, :close, :abort, :peek].select do |key|
         opts[key]
       end
 
-      commands << "t=#{opts[:timeout]}" if opts[:timeout]
+      if timeout = (opts[:timeout] || default_get_timeout)
+        commands << "t=#{timeout}"
+      end
 
       commands.map { |c| "/#{c}" }.join('')
     end
 
-    def stats_for_server(server)
-      server_name, port = server.split(/:/)
-      socket = TCPSocket.new(server_name, port)
-      socket.puts "STATS"
-
-      stats = Hash.new
-      stats['queues'] = Hash.new
-      while line = socket.readline
-        if line =~ /^STAT queue_(\S+?)_(#{QUEUE_STAT_NAMES.join("|")}) (\S+)/
-          queue_name, queue_stat_name, queue_stat_value = $1, $2, deserialize_stat_value($3)
-          stats['queues'][queue_name] ||= Hash.new
-          stats['queues'][queue_name][queue_stat_name] = queue_stat_value
-        elsif line =~ /^STAT (\w+) (\S+)/
-          stat_name, stat_value = $1, deserialize_stat_value($2)
-          stats[stat_name] = stat_value
-        elsif line =~ /^END/
-          socket.close
-          break
-        elsif defined?(RAILS_DEFAULT_LOGGER)
-          RAILS_DEFAULT_LOGGER.debug("KestrelClient#stats_for_server: Ignoring #{line}")
-        end
-      end
-
-      stats
-    end
-
-    def merge_stats(all_stats)
-      result = Hash.new
-
-      all_stats.each do |stats|
-        stats.each do |stat_name, stat_value|
-          if result.has_key?(stat_name)
-            if stat_value.kind_of?(Hash)
-              result[stat_name] = merge_stats([result[stat_name], stat_value])
-            else
-              result[stat_name] += stat_value
-            end
-          else
-            result[stat_name] = stat_value
-          end
-        end
-      end
-
-      result
-    end
-
-    def deserialize_stat_value(value)
-      case value
-        when /^\d+\.\d+$/:
-          value.to_f
-        when /^\d+$/:
-          value.to_i
-        else
-          value
-      end
+    def default_get_timeout
+      @default_timeout ||= (options[:timeout] * 1000).to_i unless kestrel_options[:no_wait]
     end
   end
 end

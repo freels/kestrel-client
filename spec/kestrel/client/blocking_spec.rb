@@ -14,8 +14,7 @@ describe "Kestrel::Client::Blocking" do
 
       it "blocks on a get until the get works" do
         mock(@raw_kestrel_client).
-          get(@queue, :timeout => Kestrel::Client::Blocking::DEFAULT_TIMEOUT) { nil }.then.
-          get(@queue, :timeout => Kestrel::Client::Blocking::DEFAULT_TIMEOUT) { :mcguffin }
+          get(@queue) { nil }.times(5).then.get(@queue) { :mcguffin }
         @kestrel.get(@queue).should == :mcguffin
       end
 

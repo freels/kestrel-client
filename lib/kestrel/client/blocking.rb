@@ -1,13 +1,9 @@
 module Kestrel
   class Client
     class Blocking < Proxy
-      DEFAULT_TIMEOUT = 1000
-
-      def get(key, opts = {})
-        opts[:timeout] = DEFAULT_TIMEOUT
-
+      def get(*args)
         loop do
-          response = client.get(key, opts)
+          response = client.get(*args)
           return response if response
         end
       end

@@ -3,7 +3,7 @@ require 'spec/spec_helper'
 describe Kestrel::Client do
   describe "Instance Methods" do
     before do
-      @kestrel = Kestrel::Client.new(*Kestrel::Config.default)
+      @kestrel = Kestrel::Client.new('localhost:22133')
     end
 
     describe "#get and #set" do
@@ -18,10 +18,17 @@ describe Kestrel::Client do
       end
 
       it "gets from the same server :gets_per_server times" do
-        mock(@kestrel).get_from_last("a_queue", false).times(100)
-        mock(@kestrel).get_from_random("a_queue", false).times(2)
+        mock(@kestrel).get_from_last("a_queue/t=250", false).times(100) { 'item' }
+        mock(@kestrel).get_from_random("a_queue/t=250", false).times(2) { 'item' }
 
         102.times { @kestrel.get("a_queue") }
+      end
+
+      it "gets from a different server when the last result was nil" do
+        mock(@kestrel).get_from_last("a_queue/t=250", false).never { nil }
+        mock(@kestrel).get_from_random("a_queue/t=250", false).times(3) { nil }
+
+        3.times { @kestrel.get("a_queue") }
       end
     end
 
