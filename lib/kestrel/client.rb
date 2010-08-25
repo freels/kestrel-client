@@ -30,7 +30,7 @@ module Kestrel
       opts = DEFAULT_OPTIONS.merge(opts)
 
       @kestrel_options = extract_kestrel_options!(opts)
-      @default_get_timeout = (opts[:timeout] * 1000).to_i unless kestrel_options[:no_wait]
+      @default_get_timeout = (opts[:timeout] / 2 * 1000).to_i unless kestrel_options[:no_wait]
       @gets_per_server = kestrel_options[:gets_per_server]
       @exception_retry_limit = kestrel_options[:exception_retry_limit]
       @counter = 0
@@ -127,8 +127,6 @@ module Kestrel
 
     private
 
-    attr_reader :default_get_timeout
-
     def extract_kestrel_options!(opts)
       kestrel_opts, memcache_opts = opts.inject([{}, {}]) do |(kestrel, memcache), (key, opt)|
         (KESTREL_OPTIONS.include?(key) ? kestrel : memcache)[key] = opt
@@ -154,7 +152,7 @@ module Kestrel
         opts[key]
       end
 
-      if timeout = (opts[:timeout] || default_get_timeout)
+      if timeout = (opts[:timeout] || @default_get_timeout)
         commands << "t=#{timeout}"
       end
 
