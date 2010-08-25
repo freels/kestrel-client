@@ -3,8 +3,7 @@ module Kestrel
     class Blocking < Proxy
       DEFAULT_TIMEOUT = 1000
 
-      def get(key, opts = false)
-        opts = extract_options(opts)
+      def get(key, opts = {})
         opts[:timeout] = DEFAULT_TIMEOUT
 
         loop do

@@ -39,7 +39,7 @@ describe "Kestrel::Client::Reliable" do
     describe "#get" do
 
       it "asks for a transaction" do
-        mock(@raw_kestrel_client).get(@queue, :raw => false, :open => true, :close => true) { :mcguffin }
+        mock(@raw_kestrel_client).get(@queue, :open => true, :close => true) { :mcguffin }
         @kestrel.get(@queue).should == :mcguffin
       end
 

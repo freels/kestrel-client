@@ -12,28 +12,15 @@ module Kestrel
 
     QUEUE_STAT_NAMES = %w{items bytes total_items logsize expired_items mem_items mem_bytes age discarded}
 
-    # ==== Parameters
-    # key<String>:: Queue name
-    # opts<Boolean,Hash>:: True/false toggles Marshalling. A Hash
-    #                      allows collision-avoiding options support.
-    #
-    # ==== Options (opts)
-    # :open<Boolean>:: Begins a reliable read.
-    # :close<Boolean>:: Ends a reliable read.
-    # :abort<Boolean>:: Cancels an existing reliable read
-    # :peek<Boolean>:: Return the head of the queue, without removal
-    # :timeout<Integer>:: Milliseconds to block for a new item
-    # :raw<Boolean>:: Toggles Marshalling. Equivalent to the "old
-    #                 style" second argument.
-    #
-    def get(key, opts = false)
-      opts     = extract_options(opts)
-      raw      = opts.delete(:raw)
-      commands = extract_queue_commands(opts)
+    DEFAULT_GETS_PER_SERVER = 100
 
-      super key + commands, raw
+    def initialize(servers = nil, opts = {})
+      @gets_per_server = opts.delete(:gets_per_server) || DEFAULT_GETS_PER_SERVER
+      super
     end
 
+    alias get_from_random get
+
     # ==== Parameters
     # key<String>:: Queue name
     # opts<Boolean,Hash>:: True/false toggles Marshalling. A Hash
@@ -48,12 +35,29 @@ module Kestrel
     # :raw<Boolean>:: Toggles Marshalling. Equivalent to the "old
     #                 style" second argument.
     #
-    def get_from_last(key, opts = {})
-      opts     = extract_options(opts)
-      raw      = opts.delete(:raw)
+    def get(key, opts = {})
+      raw = opts.delete(:raw)
       commands = extract_queue_commands(opts)
 
-      super key + commands, raw
+      get_from_random_or_last(key + commands, raw)
+    end
+
+    def get_from_random_or_last(key, raw = false)
+      @counter ||= 0
+
+      op =
+        if key != @current_queue || @counter >= @gets_per_server
+          @counter = 0
+          @current_queue = key
+          :get_from_random
+        else
+          @counter +=1
+          :get_from_last
+        end
+
+      send(op, key, raw)
+    rescue Memcached::NotFound
+      nil
     end
 
     def flush(queue)
@@ -88,10 +92,6 @@ module Kestrel
     end
 
     private
-
-    def extract_options(opts)
-      opts.is_a?(Hash) ? opts : { :raw => !!opts }
-    end
 
     def extract_queue_commands(opts)
       commands = [:open, :close, :abort, :peek].select do |key|

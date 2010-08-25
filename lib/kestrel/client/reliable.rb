@@ -48,7 +48,7 @@ module Kestrel
       # ==== Returns
       # Job, possibly retryable, or nil
       #
-      def get(key, opts = false)
+      def get(key, opts = {})
         raise MultipleQueueException if @key && key != @key
 
         job =
@@ -102,7 +102,6 @@ module Kestrel
       # client "attached" to a single server for a period of time.
       #
       def get_with_fallback(primary, secondary, opts) #:nodoc:
-        opts = extract_options(opts)
         opts.merge! :close => true, :open => true
 
         if @counter == 0
