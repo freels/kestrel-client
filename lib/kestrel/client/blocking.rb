@@ -1,11 +1,19 @@
 module Kestrel
   class Client
     class Blocking < Proxy
+      SLEEP_TIME = 0.5
+
       def get(*args)
+        times = 0
+
         loop do
-          response = client.get(*args)
-          return response if response
-          sleep 0.4
+          times += 1
+
+          if response = client.get(*args)
+            return response
+          end
+
+          sleep SLEEP_TIME if times > 5
         end
       end
 
