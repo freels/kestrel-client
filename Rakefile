@@ -28,7 +28,7 @@ begin
     gemspec.email = "rael@twitter.com"
     gemspec.homepage = "http://github.com/freels/kestrel-client"
     gemspec.authors = ["Matt Freels", "Rael Dornfest"]
-    gemspec.add_dependency 'memcached'
+    gemspec.add_dependency 'memcached', '>= 0.17'
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError
