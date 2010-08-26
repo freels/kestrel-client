@@ -18,15 +18,15 @@ describe Kestrel::Client do
       end
 
       it "gets from the same server :gets_per_server times" do
-        mock(@kestrel).get_from_last("a_queue/t=250", false).times(100) { 'item' }
-        mock(@kestrel).get_from_random("a_queue/t=250", false).times(2) { 'item' }
+        mock(@kestrel).get_from_last("a_queue/t=10", false).times(100) { 'item' }
+        mock(@kestrel).get_from_random("a_queue/t=10", false).times(2) { 'item' }
 
         102.times { @kestrel.get("a_queue") }
       end
 
       it "gets from a different server when the last result was nil" do
-        mock(@kestrel).get_from_last("a_queue/t=250", false).never { nil }
-        mock(@kestrel).get_from_random("a_queue/t=250", false).times(3) { nil }
+        mock(@kestrel).get_from_last("a_queue/t=10", false).never { nil }
+        mock(@kestrel).get_from_random("a_queue/t=10", false).times(3) { nil }
 
         3.times { @kestrel.get("a_queue") }
       end
