@@ -12,13 +12,14 @@ module Kestrel
     autoload :Json, 'kestrel/client/json'
     autoload :Reliable, "kestrel/client/reliable"
 
-    KESTREL_OPTIONS = [:gets_per_server, :no_wait, :exception_retry_limit].freeze
+    KESTREL_OPTIONS = [:gets_per_server, :exception_retry_limit, :get_timeout_ms].freeze
 
     DEFAULT_OPTIONS = {
       :retry_timeout => 0,
       :exception_retry_limit => 5,
       :timeout => 0.25,
-      :gets_per_server => 100
+      :gets_per_server => 100,
+      :get_timeout_ms => 10
     }.freeze
 
     include StatsHelper
@@ -30,7 +31,7 @@ module Kestrel
       opts = DEFAULT_OPTIONS.merge(opts)
 
       @kestrel_options = extract_kestrel_options!(opts)
-      @default_get_timeout = (opts[:timeout] / 2 * 1000).to_i unless kestrel_options[:no_wait]
+      @default_get_timeout = kestrel_options[:get_timeout_ms]
       @gets_per_server = kestrel_options[:gets_per_server]
       @exception_retry_limit = kestrel_options[:exception_retry_limit]
       @counter = 0
@@ -152,7 +153,7 @@ module Kestrel
         opts[key]
       end
 
-      if timeout = (opts[:timeout])
+      if timeout = (opts[:timeout] || @default_get_timeout)
         commands << "t=#{timeout}"
       end
 
