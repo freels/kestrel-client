@@ -1,133 +1,107 @@
-module Kestrel
-  class Client
-    #--
-    # TODO: Pull out the sticky server logic into Client. This class
-    #       should only be responsible for the retry semantics.
-    #++
-    class Reliable < Proxy
-      # Raised when a caller attempts to use this proxy across
-      # multiple queues.
-      class MultipleQueueException < StandardError; end
+class Kestrel::Client::Reliable < Kestrel::Client::Proxy
 
-      class RetryableJob < Struct.new(:retries, :job); end
+  # Raised when a caller attempts to use this proxy across
+  # multiple queues.
+  class MultipleQueueException < StandardError; end
 
-      # Number of times to retry a job before giving up
-      DEFAULT_RETRIES = 100
 
-      # Pct. of the time during 'normal' processing we check the error queue first
-      ERROR_PROCESSING_RATE = 0.1
+  class RetryableJob < Struct.new(:retries, :job); end
 
-      # Maximum number of gets to execute before switching servers
-      MAX_PER_SERVER = 100_000
 
-      # ==== Parameters
-      # client<Kestrel::Client>:: Client
-      # retry_count<Integer>:: Number of times to retry a job before
-      #                        giving up. Defaults to DEFAULT_RETRIES
-      # error_rate<Float>:: Pct. of the time during 'normal'
-      #                     processing we check the error queue
-      #                     first. Defaults to ERROR_PROCESSING_RATE
-      # per_server<Integer>:: Number of gets to execute against a
-      #                       single server, before changing
-      #                       servers. Defaults to MAX_PER_SERVER
-      #
-      def initialize(client, retry_count = nil, error_rate = nil, per_server = nil)
-        @retry_count = retry_count || DEFAULT_RETRIES
-        @error_rate  = error_rate || ERROR_PROCESSING_RATE
-        @per_server  = per_server || MAX_PER_SERVER
-        @counter     = 0 # Command counter
-        super(client)
-      end
+  # Number of times to retry a job before giving up
+  DEFAULT_RETRIES = 100
 
-      # Returns job from the +key+ queue 1 - ERROR_PROCESSING_RATE
-      # pct. of the time. Every so often, checks the error queue for
-      # jobs and returns a retryable job. If either the error queue or
-      # +key+ queue are empty, attempts to pull a job from the
-      # alternate queue before giving up.
-      #
-      # ==== Returns
-      # Job, possibly retryable, or nil
-      #
-      def get(key, opts = {})
-        raise MultipleQueueException if @key && key != @key
 
-        job =
-          if rand < @error_rate
-            get_with_fallback(key + "_errors", key, opts)
-          else
-            get_with_fallback(key, key + "_errors", opts)
-          end
+  # Pct. of the time during 'normal' processing we check the error queue first
+  ERROR_PROCESSING_RATE = 0.1
 
-        if job
-          @key = key
-          @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
-          @job.job
-        else
-          @key = @job = nil
-        end
-      end
 
-      def current_try
-        @job ? @job.retries + 1 : 1
-      end
+  # Maximum number of gets to execute before switching servers
+  MAX_PER_SERVER = 100_000
 
-      # Enqueues the current job on the error queue for later
-      # retry. If the job has been retried DEFAULT_RETRIES times,
-      # gives up entirely.
-      #
-      # ==== Returns
-      # Boolean:: true if the job is retryable, false otherwise
-      #
-      def retry
-        return unless @job
 
-        close_open_transaction!
-        @job.retries += 1
+  # ==== Parameters
+  # client<Kestrel::Client>:: Client
+  # max_retries<Integer>:: Number of times to retry a job before
+  #                        giving up. Defaults to DEFAULT_RETRIES
+  # error_rate<Float>:: Pct. of the time during 'normal'
+  #                     processing we check the error queue
+  #                     first. Defaults to ERROR_PROCESSING_RATE
+  # per_server<Integer>:: Number of gets to execute against a
+  #                       single server, before changing
+  #                       servers. Defaults to MAX_PER_SERVER
+  #
+  def initialize(client, max_retries = nil, error_rate = nil, per_server = nil)
+    @max_retries = max_retries || DEFAULT_RETRIES
+    @error_rate  = error_rate || ERROR_PROCESSING_RATE
+    @per_server  = per_server || MAX_PER_SERVER
+    @counter     = 0 # Command counter
+    super(client)
+  end
 
-        if @job.retries < @retry_count
-          client.set(@key + "_errors", @job)
-          true
-        else
-          false
-        end
-      end
+  attr_reader :current_queue
 
-      private
+  # Returns job from the +key+ queue 1 - ERROR_PROCESSING_RATE
+  # pct. of the time. Every so often, checks the error queue for
+  # jobs and returns a retryable job. If either the error queue or
+  # +key+ queue are empty, attempts to pull a job from the
+  # alternate queue before giving up.
+  #
+  # ==== Returns
+  # Job, possibly retryable, or nil
+  #
+  def get(key, opts = {})
+    raise MultipleQueueException if current_queue && key != current_queue
 
-      # If a get against the +primary+ queue is nil, falls back to the
-      # +secondary+ queue.
-      #
-      # Also, this executes a get on the first request, then a get_from_last
-      # on each ensuing request for @per_server requests. This keeps the
-      # client "attached" to a single server for a period of time.
-      #
-      def get_with_fallback(primary, secondary, opts) #:nodoc:
-        opts.merge! :close => true, :open => true
+    close_transaction(current_try == 1 ? key : "#{key}_errors")
 
-        if @counter == 0
-          close_open_transaction! if @job
-          @counter += 1
-          command = :get
-        elsif @counter < @per_server
-          # Open transactions are implicitly closed, here.
-          @counter += 1
-          command = :get_from_last
-        else
-          close_open_transaction! if @job
-          @counter = 0
-          command = :get
-        end
+    q1, q2 = (rand < @error_rate) ? [key + "_errors", key] : [key, key + "_errors"]
 
-        client.send(command, primary, opts) || client.send(command, secondary, opts)
-      end
-
-      def close_open_transaction! #:nodoc:
-        if @job.retries == 0
-          client.get_from_last(@key, :close => true, :open => false)
-        else
-          client.get_from_last(@key + "_errors", :close => true, :open => false)
-        end
-      end
+    if job = get_with_fallback(q1, q2, opts.merge(:close => true, :open => true))
+      @current_queue = key
+      @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
+      @job.job
+    else
+      @current_queue = @job = nil
     end
+  end
+
+  def current_try
+    @job ? @job.retries + 1 : 1
+  end
+
+  # Enqueues the current job on the error queue for later
+  # retry. If the job has been retried DEFAULT_RETRIES times,
+  # gives up entirely.
+  #
+  # ==== Returns
+  # Boolean:: true if the job is retryable, false otherwise
+  #
+  def retry
+    return unless @job
+
+    @job.retries += 1
+
+    if should_retry = @job.retries < @max_retries
+      client.set(current_queue + "_errors", @job)
+    end
+
+    # close the transaction on the original queue if this is the first retry
+    close_transaction(@job.retries == 1 ? current_queue : "#{current_queue}_errors")
+
+    should_retry
+  end
+
+  private
+
+  # If a get against the +primary+ queue is nil, falls back to the
+  # +secondary+ queue.
+  #
+  def get_with_fallback(primary, secondary, opts) #:nodoc:
+    client.get(primary, opts) || client.get(secondary, opts)
+  end
+
+  def close_transaction(key) #:nodoc:
+    client.get_from_last("#{key}/close")
   end
 end

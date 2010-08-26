@@ -65,10 +65,12 @@ module Kestrel
     # use get_from_last if available, otherwise redefine to point to
     # plain old get
     if method_defined? :get_from_last
+
       def get_from_last(key, raw=false)
         super key, !raw
       rescue Memcached::NotFound
       end
+
     else
 
       $stderr.puts "You have an older version of memcached.gem. Please upgrade to 0.19.6 or later for sticky get behavior."
@@ -76,7 +78,8 @@ module Kestrel
         _super_get_from_random key, !raw
       rescue Memcached::NotFound
       end
-    end
+
+    end # end ifdef :)
 
     def delete(key, expiry=0)
       with_retries { super key }

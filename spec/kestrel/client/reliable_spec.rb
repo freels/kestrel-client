@@ -1,33 +1,6 @@
 require 'spec/spec_helper'
 
 describe "Kestrel::Client::Reliable" do
-  describe "Sticky" do
-    before do
-      @max_requests = 2
-      @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
-      @kestrel = Kestrel::Client::Reliable.new(@raw_kestrel_client, nil, nil, @max_requests)
-      stub(@kestrel).rand { 1 }
-      @queue = "some_queue"
-    end
-
-    describe "#get" do
-
-      it 'does a get on the first request' do
-        mock(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
-        @kestrel.get(@queue)
-      end
-
-      it 'does a get_from_last a number of times, then a get' do
-        mock(@raw_kestrel_client).get(@queue, anything).twice { :mcguffin }
-        mock(@raw_kestrel_client).get_from_last(@queue, anything).twice { :mcguffin }
-
-        @kestrel.get(@queue) # Initial get
-        @kestrel.get(@queue) # get_from_last
-        @kestrel.get(@queue) # get_from_last txn close, get
-      end
-    end
-  end
-
   describe "Instance Methods" do
     before do
       @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
@@ -92,7 +65,7 @@ describe "Kestrel::Client::Reliable" do
         stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
         @kestrel.get(@queue)
 
-        mock(@raw_kestrel_client).get_from_last(@queue, :close => true, :open => false)
+        mock(@raw_kestrel_client).get_from_last(@queue + "/close")
         @kestrel.get(@queue)
       end
 
@@ -103,7 +76,7 @@ describe "Kestrel::Client::Reliable" do
         end
         @kestrel.get(@queue)
 
-        mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close")
         @kestrel.get(@queue)
       end
 
@@ -184,7 +157,7 @@ describe "Kestrel::Client::Reliable" do
         stub(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
         @kestrel.get(@queue)
 
-        mock(@raw_kestrel_client).get_from_last(@queue, :close => true, :open => false)
+        mock(@raw_kestrel_client).get_from_last(@queue + "/close")
         @kestrel.retry
       end
 
@@ -195,7 +168,7 @@ describe "Kestrel::Client::Reliable" do
         end
         @kestrel.get(@queue)
 
-        mock(@raw_kestrel_client).get_from_last(@queue + "_errors", :close => true, :open => false)
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close")
         @kestrel.retry
       end
 
