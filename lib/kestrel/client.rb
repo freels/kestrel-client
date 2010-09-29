@@ -10,7 +10,7 @@ module Kestrel
     autoload :Unmarshal, 'kestrel/client/unmarshal'
     autoload :Namespace, 'kestrel/client/namespace'
     autoload :Json, 'kestrel/client/json'
-    autoload :Reliable, "kestrel/client/reliable"
+    autoload :Transactional, "kestrel/client/transactional"
 
     KESTREL_OPTIONS = [:gets_per_server, :exception_retry_limit, :get_timeout_ms].freeze
 
@@ -100,9 +100,9 @@ module Kestrel
     #                      allows collision-avoiding options support.
     #
     # ==== Options (opts)
-    # :open<Boolean>:: Begins a reliable read.
-    # :close<Boolean>:: Ends a reliable read.
-    # :abort<Boolean>:: Cancels an existing reliable read
+    # :open<Boolean>:: Begins a transactional read.
+    # :close<Boolean>:: Ends a transactional read.
+    # :abort<Boolean>:: Cancels an existing transactional read
     # :peek<Boolean>:: Return the head of the queue, without removal
     # :timeout<Integer>:: Milliseconds to block for a new item
     # :raw<Boolean>:: Toggles Marshalling. Equivalent to the "old

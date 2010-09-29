@@ -1,4 +1,4 @@
-class Kestrel::Client::Reliable < Kestrel::Client::Proxy
+class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
   # Raised when a caller attempts to use this proxy across
   # multiple queues.
