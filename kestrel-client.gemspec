@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{kestrel-client}
-  s.version = "0.5.0"
+  s.version = "0.5.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Matt Freels", "Rael Dornfest"]
-  s.date = %q{2010-08-26}
+  s.date = %q{2010-09-29}
   s.description = %q{Ruby client for the Kestrel queue server}
   s.email = %q{rael@twitter.com}
   s.extra_rdoc_files = [
@@ -30,9 +30,9 @@ Gem::Specification.new do |s|
      "lib/kestrel/client/namespace.rb",
      "lib/kestrel/client/partitioning.rb",
      "lib/kestrel/client/proxy.rb",
-     "lib/kestrel/client/reliable.rb",
      "lib/kestrel/client/retry_helper.rb",
      "lib/kestrel/client/stats_helper.rb",
+     "lib/kestrel/client/transactional.rb",
      "lib/kestrel/client/unmarshal.rb",
      "lib/kestrel/config.rb",
      "spec/kestrel/client/blocking_spec.rb",
@@ -40,7 +40,7 @@ Gem::Specification.new do |s|
      "spec/kestrel/client/json_spec.rb",
      "spec/kestrel/client/namespace_spec.rb",
      "spec/kestrel/client/partitioning_spec.rb",
-     "spec/kestrel/client/reliable_spec.rb",
+     "spec/kestrel/client/transactional_spec.rb",
      "spec/kestrel/client/unmarshal_spec.rb",
      "spec/kestrel/client_spec.rb",
      "spec/kestrel/config/kestrel.yml",
@@ -60,7 +60,7 @@ Gem::Specification.new do |s|
      "spec/kestrel/client/json_spec.rb",
      "spec/kestrel/client/namespace_spec.rb",
      "spec/kestrel/client/partitioning_spec.rb",
-     "spec/kestrel/client/reliable_spec.rb",
+     "spec/kestrel/client/transactional_spec.rb",
      "spec/kestrel/client/unmarshal_spec.rb",
      "spec/kestrel/client_spec.rb",
      "spec/kestrel/config_spec.rb",
