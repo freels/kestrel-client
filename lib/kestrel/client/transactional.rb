@@ -4,21 +4,13 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # multiple queues.
   class MultipleQueueException < StandardError; end
 
-
   class RetryableJob < Struct.new(:retries, :job); end
-
 
   # Number of times to retry a job before giving up
   DEFAULT_RETRIES = 100
 
-
   # Pct. of the time during 'normal' processing we check the error queue first
   ERROR_PROCESSING_RATE = 0.1
-
-
-  # Maximum number of gets to execute before switching servers
-  MAX_PER_SERVER = 100_000
-
 
   # ==== Parameters
   # client<Kestrel::Client>:: Client
@@ -31,10 +23,9 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   #                       single server, before changing
   #                       servers. Defaults to MAX_PER_SERVER
   #
-  def initialize(client, max_retries = nil, error_rate = nil, per_server = nil)
+  def initialize(client, max_retries = nil, error_rate = nil)
     @max_retries = max_retries || DEFAULT_RETRIES
     @error_rate  = error_rate || ERROR_PROCESSING_RATE
-    @per_server  = per_server || MAX_PER_SERVER
     @counter     = 0 # Command counter
     super(client)
   end
@@ -77,17 +68,25 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # ==== Returns
   # Boolean:: true if the job is retryable, false otherwise
   #
-  def retry
-    return unless @job
+  def retry(item = nil)
+    job =
+      if item
+        current_retries = (@job ?  @job.retries : 0)
+        RetryableJob.new(current_retries, item)
+      else
+        @job
+      end
 
-    @job.retries += 1
+    return unless job
 
-    if should_retry = @job.retries < @max_retries
-      client.set(current_queue + "_errors", @job)
+    job.retries += 1
+
+    if should_retry = job.retries < @max_retries
+      client.set(current_queue + "_errors", job)
     end
 
     # close the transaction on the original queue if this is the first retry
-    close_transaction(@job.retries == 1 ? current_queue : "#{current_queue}_errors")
+    close_transaction(job.retries == 1 ? current_queue : "#{current_queue}_errors")
 
     should_retry
   end

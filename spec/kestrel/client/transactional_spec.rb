@@ -4,7 +4,7 @@ describe "Kestrel::Client::Transactional" do
   describe "Instance Methods" do
     before do
       @raw_kestrel_client = Kestrel::Client.new(*Kestrel::Config.default)
-      @kestrel = Kestrel::Client::Transactional.new(@raw_kestrel_client, nil, nil, 1)
+      @kestrel = Kestrel::Client::Transactional.new(@raw_kestrel_client)
       stub(@kestrel).rand { 1 }
       @queue = "some_queue"
     end
@@ -126,6 +126,14 @@ describe "Kestrel::Client::Transactional" do
           job.job.should == :mcmuffin
         end
         @kestrel.retry.should be_true
+      end
+
+      it "allows specification of the job to retry" do
+        mock(@raw_kestrel_client).set(@queue + "_errors", anything) do |queue, job|
+          job.retries.should == 1
+          job.job.should == :revised_mcmuffin
+        end
+        @kestrel.retry(:revised_mcmuffin).should be_true
       end
 
       it "increments the retry count and re-enqueues the retried job" do
