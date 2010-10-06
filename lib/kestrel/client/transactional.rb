@@ -81,17 +81,11 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
     return unless job
 
+    queue = queue_for_last_job
     job.retries += 1
 
-    if job.retries == 1
-      client.set(current_queue + "_errors", job)
-      close_transaction(current_queue)
-    elsif job.retries < @max_retries
-      client.set(current_queue + "_errors", job)
-      close_transaction(current_queue + "_errors")
-    else
-      close_transaction(current_queue + "_errors")
-    end
+    client.set(current_queue + "_errors", job) if job.retries < @max_retries
+    close_transaction(queue)
     
     # No longer have an active job
     @current_queue = @job = nil
