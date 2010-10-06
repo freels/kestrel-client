@@ -12,7 +12,7 @@ describe "Kestrel::Client::Transactional" do
     describe "#get" do
 
       it "asks for a transaction" do
-        mock(@raw_kestrel_client).get(@queue, :open => true, :close => true) { :mcguffin }
+        mock(@raw_kestrel_client).get(@queue, :open => true) { :mcguffin }
         @kestrel.get(@queue).should == :mcguffin
       end
 
@@ -23,13 +23,6 @@ describe "Kestrel::Client::Transactional" do
         @kestrel.get(@queue).should == :mcguffin
       end
 
-      it "falls through to the normal queue when error queue is empty" do
-        mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE - 0.05 }
-        mock(@raw_kestrel_client).get(@queue + "_errors", anything) { nil }
-        mock(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
-        @kestrel.get(@queue).should == :mcguffin
-      end
-
       it "gets from the normal queue most of the time" do
         mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE + 0.05 }
         mock(@raw_kestrel_client).get(@queue, anything) { :mcguffin }
@@ -37,16 +30,16 @@ describe "Kestrel::Client::Transactional" do
         @kestrel.get(@queue).should == :mcguffin
       end
 
-      it "falls through to the error queue when normal queue is empty" do
+      it "is nil when the primary queue is empty and selected" do
         mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE + 0.05 }
         mock(@raw_kestrel_client).get(@queue, anything) { nil }
-        mock(@raw_kestrel_client).get(@queue + "_errors", anything) { :mcguffin }
-        @kestrel.get(@queue).should == :mcguffin
+        mock(@raw_kestrel_client).get(@queue + "_errors", anything).never
+        @kestrel.get(@queue).should be_nil
       end
 
-      it "is nil when both queues are empty" do
-        mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE + 0.05 }
-        mock(@raw_kestrel_client).get(@queue, anything) { nil }
+      it "is nil when the error queue is empty and selected" do
+        mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE - 0.05 }
+        mock(@raw_kestrel_client).get(@queue, anything).never
         mock(@raw_kestrel_client).get(@queue + "_errors", anything) { nil }
         @kestrel.get(@queue).should be_nil
       end

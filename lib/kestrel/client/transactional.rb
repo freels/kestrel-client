@@ -46,7 +46,7 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
     queue = (rand < @error_rate) ? key + "_errors" : key
 
-    if job = get(queue, opts.merge(:open => true))
+    if job = client.get(queue, opts.merge(:open => true))
       @current_queue = key
       @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
       @job.job
