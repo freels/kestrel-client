@@ -217,15 +217,15 @@ describe "Kestrel::Client::Transactional" do
       end
     end
 
-    describe "#normal_or_error_queue" do
+    describe "#read_from_error_queue?" do
       it "returns the error queue ERROR_PROCESSING_RATE pct. of the time" do
         mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE - 0.05 }
-        @kestrel.send(:normal_or_error_queue, @queue).should == @queue + "_errors"
+        @kestrel.send(:read_from_error_queue?).should == true
       end
 
       it "returns the normal queue most of the time" do
         mock(@kestrel).rand { Kestrel::Client::Transactional::ERROR_PROCESSING_RATE + 0.05 }
-        @kestrel.send(:normal_or_error_queue, @queue).should == @queue
+        @kestrel.send(:read_from_error_queue?).should == false
       end
     end
 
@@ -237,7 +237,7 @@ describe "Kestrel::Client::Transactional" do
       end
 
       it "closes the normal queue if the job was pulled off of the normal queue" do
-        mock(@kestrel).normal_or_error_queue(@queue) { @queue }
+        mock(@kestrel).read_from_error_queue? { false }
         mock(@raw_kestrel_client).get(@queue, :open => true) { :mcguffin }
         mock(@raw_kestrel_client).get_from_last(@queue + "/close")
         mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close").never
@@ -247,7 +247,7 @@ describe "Kestrel::Client::Transactional" do
       end
 
       it "closes the error queue if the job was pulled off of the error queue" do
-        mock(@kestrel).normal_or_error_queue(@queue) { @queue + "_errors" }
+        mock(@kestrel).read_from_error_queue? { true }
         mock(@raw_kestrel_client).get(@queue + "_errors", anything) { Kestrel::Client::Transactional::RetryableJob.new 1, :mcguffin }
         mock(@raw_kestrel_client).get_from_last(@queue + "/close").never
         mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close")

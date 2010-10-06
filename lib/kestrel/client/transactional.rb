@@ -44,9 +44,11 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
     close_last_transaction
 
-    if job = client.get(normal_or_error_queue(key), opts.merge(:open => true))
+    queue = read_from_error_queue? ? key + "_errors" : key
+
+    if job = client.get(queue, opts.merge(:open => true))
       @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
-      @current_is_retry = job.is_a? RetryableJob
+      @last_read_queue = queue
       @current_queue = key
       @job.job
     end
@@ -54,6 +56,13 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
   def current_try
     @job.retries + 1
+  end
+
+  def close_last_transaction #:nodoc:
+    return unless @last_read_queue
+
+    client.get_from_last(@last_read_queue + "/close")
+    @last_read_queue = @current_queue = @job = nil
   end
 
   # Enqueues the current job on the error queue for later
@@ -65,8 +74,6 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   #
   #
   def retry(item = nil)
-    enqueued_retry = false
-
     job =
       if item
         current_retries = (@job ? @job.retries : 0)
@@ -85,23 +92,9 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
     job.retries < @max_retries
   end
 
-  def close_last_transaction #:nodoc:
-    return unless @job
-
-    queue_for_last_job =
-      if @current_is_retry
-        current_queue + "_errors"
-      else
-        current_queue
-      end
-
-    client.get_from_last("#{queue_for_last_job}/close")
-    @current_is_retry = @current_queue = @job = nil
-  end
-
   private
 
-  def normal_or_error_queue(key)
-    (rand < @error_rate) ? key + "_errors" : key
+  def read_from_error_queue?
+    rand < @error_rate
   end
 end
