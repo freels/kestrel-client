@@ -34,9 +34,7 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
   # Returns job from the +key+ queue 1 - ERROR_PROCESSING_RATE
   # pct. of the time. Every so often, checks the error queue for
-  # jobs and returns a retryable job. If either the error queue or
-  # +key+ queue are empty, attempts to pull a job from the
-  # alternate queue before giving up.
+  # jobs and returns a retryable job.
   #
   # ==== Returns
   # Job, possibly retryable, or nil
@@ -44,21 +42,27 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   def get(key, opts = {})
     raise MultipleQueueException if current_queue && key != current_queue
 
-    close_transaction(current_try == 1 ? key : "#{key}_errors")
+    close_last_transaction
 
-    q1, q2 = (rand < @error_rate) ? [key + "_errors", key] : [key, key + "_errors"]
+    queue = read_from_error_queue? ? key + "_errors" : key
 
-    if job = get_with_fallback(q1, q2, opts.merge(:close => true, :open => true))
-      @current_queue = key
+    if job = client.get(queue, opts.merge(:open => true))
       @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
+      @last_read_queue = queue
+      @current_queue = key
       @job.job
-    else
-      @current_queue = @job = nil
     end
   end
 
   def current_try
-    @job ? @job.retries + 1 : 1
+    @job.retries + 1
+  end
+
+  def close_last_transaction #:nodoc:
+    return unless @last_read_queue
+
+    client.get_from_last(@last_read_queue + "/close")
+    @last_read_queue = @current_queue = @job = nil
   end
 
   # Enqueues the current job on the error queue for later
@@ -66,41 +70,31 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # gives up entirely.
   #
   # ==== Returns
-  # Boolean:: true if the job is retryable, false otherwise
+  # Boolean:: true if the job is enqueued in the retry queue, false otherwise
+  #
   #
   def retry(item = nil)
     job =
       if item
-        current_retries = (@job ?  @job.retries : 0)
+        current_retries = (@job ? @job.retries : 0)
         RetryableJob.new(current_retries, item)
       else
-        @job
+        @job.dup
       end
 
     return unless job
 
     job.retries += 1
 
-    if should_retry = job.retries < @max_retries
-      client.set(current_queue + "_errors", job)
-    end
+    client.set(current_queue + "_errors", job) if job.retries < @max_retries
+    close_last_transaction
 
-    # close the transaction on the original queue if this is the first retry
-    close_transaction(job.retries == 1 ? current_queue : "#{current_queue}_errors")
-
-    should_retry
+    job.retries < @max_retries
   end
 
   private
 
-  # If a get against the +primary+ queue is nil, falls back to the
-  # +secondary+ queue.
-  #
-  def get_with_fallback(primary, secondary, opts) #:nodoc:
-    client.get(primary, opts) || client.get(secondary, opts)
-  end
-
-  def close_transaction(key) #:nodoc:
-    client.get_from_last("#{key}/close")
+  def read_from_error_queue?
+    rand < @error_rate
   end
 end
