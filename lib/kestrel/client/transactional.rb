@@ -34,9 +34,7 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
   # Returns job from the +key+ queue 1 - ERROR_PROCESSING_RATE
   # pct. of the time. Every so often, checks the error queue for
-  # jobs and returns a retryable job. If either the error queue or
-  # +key+ queue are empty, attempts to pull a job from the
-  # alternate queue before giving up.
+  # jobs and returns a retryable job.
   #
   # ==== Returns
   # Job, possibly retryable, or nil
@@ -46,9 +44,9 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
     close_transaction(current_try == 1 ? key : "#{key}_errors")
 
-    q1, q2 = (rand < @error_rate) ? [key + "_errors", key] : [key, key + "_errors"]
+    queue = (rand < @error_rate) ? key + "_errors" : key
 
-    if job = get_with_fallback(q1, q2, opts.merge(:close => true, :open => true))
+    if job = get(queue, opts.merge(:open => true))
       @current_queue = key
       @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
       @job.job
@@ -92,13 +90,6 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   end
 
   private
-
-  # If a get against the +primary+ queue is nil, falls back to the
-  # +secondary+ queue.
-  #
-  def get_with_fallback(primary, secondary, opts) #:nodoc:
-    client.get(primary, opts) || client.get(secondary, opts)
-  end
 
   def close_transaction(key) #:nodoc:
     client.get_from_last("#{key}/close")
