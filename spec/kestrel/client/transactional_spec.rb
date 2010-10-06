@@ -150,8 +150,9 @@ describe "Kestrel::Client::Transactional" do
           Kestrel::Client::Transactional::RetryableJob.new(Kestrel::Client::Transactional::DEFAULT_RETRIES - 1, :mcmuffin)
         end
         mock(@raw_kestrel_client).set(@queue + "_errors", anything).never
+        mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close")
         @kestrel.get(@queue)
-        @kestrel.retry.should be_false
+        @kestrel.retry.should be_nil
       end
 
       it "closes an open transaction with no retries" do
