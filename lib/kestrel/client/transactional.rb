@@ -42,7 +42,7 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   def get(key, opts = {})
     raise MultipleQueueException if current_queue && key != current_queue
 
-    close_transaction(current_try == 1 ? key : "#{key}_errors")
+    close_transaction(current_try == 1 ? key : "#{key}_errors") if @current_queue
 
     queue = (rand < @error_rate) ? key + "_errors" : key
 
@@ -81,9 +81,11 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
     if should_retry = job.retries < @max_retries
       client.set(current_queue + "_errors", job)
+    else
+      @current_queue = nil
     end
 
-    # close the transaction on the original queue if this is the first retry
+    # close the transaction on the original queue
     close_transaction(job.retries == 1 ? current_queue : "#{current_queue}_errors")
 
     should_retry
