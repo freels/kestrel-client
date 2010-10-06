@@ -42,25 +42,18 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   def get(key, opts = {})
     raise MultipleQueueException if current_queue && key != current_queue
 
-    close_transaction(queue_for_last_job) if @job
+    close_last_transaction
 
-    queue = (rand < @error_rate) ? key + "_errors" : key
-
-    if job = client.get(queue, opts.merge(:open => true))
-      @current_queue = key
+    if job = client.get(normal_or_error_queue(key), opts.merge(:open => true))
       @job = job.is_a?(RetryableJob) ? job : RetryableJob.new(0, job)
+      @current_is_retry = job.is_a? RetryableJob
+      @current_queue = key
       @job.job
-    else
-      @current_queue = @job = nil
     end
   end
 
-  def queue_for_last_job
-    if @job.retries < 1
-      @current_queue
-    else
-      current_queue + "_errors"
-    end
+  def current_try
+    @job.retries + 1
   end
 
   # Enqueues the current job on the error queue for later
@@ -68,33 +61,47 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # gives up entirely.
   #
   # ==== Returns
-  # Boolean:: true if the job is retryable, false otherwise
+  # Boolean:: true if the job is enqueued in the retry queue, false otherwise
+  #
   #
   def retry(item = nil)
+    enqueued_retry = false
+
     job =
       if item
         current_retries = (@job ? @job.retries : 0)
         RetryableJob.new(current_retries, item)
       else
-        @job
+        @job.dup
       end
 
     return unless job
 
-    queue = queue_for_last_job
     job.retries += 1
 
     client.set(current_queue + "_errors", job) if job.retries < @max_retries
-    close_transaction(queue)
-    
-    # No longer have an active job
-    @current_queue = @job = nil
+    close_last_transaction
+
     job.retries < @max_retries
+  end
+
+  def close_last_transaction #:nodoc:
+    return unless @job
+
+    queue_for_last_job =
+      if @current_is_retry
+        current_queue + "_errors"
+      else
+        current_queue
+      end
+
+    client.get_from_last("#{queue_for_last_job}/close")
+    @current_is_retry = @current_queue = @job = nil
   end
 
   private
 
-  def close_transaction(key) #:nodoc:
-    client.get_from_last("#{key}/close")
+  def normal_or_error_queue(key)
+    (rand < @error_rate) ? key + "_errors" : key
   end
 end
