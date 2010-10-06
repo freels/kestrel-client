@@ -42,7 +42,7 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   def get(key, opts = {})
     raise MultipleQueueException if current_queue && key != current_queue
 
-    close_transaction(current_try == 1 ? key : "#{key}_errors") if @current_queue
+    close_transaction(queue_for_last_job) if @job
 
     queue = (rand < @error_rate) ? key + "_errors" : key
 
@@ -55,8 +55,12 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
     end
   end
 
-  def current_try
-    @job ? @job.retries + 1 : 1
+  def queue_for_last_job
+    if @job.retries < 1
+      @current_queue
+    else
+      current_queue + "_errors"
+    end
   end
 
   # Enqueues the current job on the error queue for later
@@ -69,7 +73,7 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   def retry(item = nil)
     job =
       if item
-        current_retries = (@job ?  @job.retries : 0)
+        current_retries = (@job ? @job.retries : 0)
         RetryableJob.new(current_retries, item)
       else
         @job
@@ -82,16 +86,16 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
     if job.retries == 1
       client.set(current_queue + "_errors", job)
       close_transaction(current_queue)
-      true
     elsif job.retries < @max_retries
       client.set(current_queue + "_errors", job)
       close_transaction(current_queue + "_errors")
-      true
     else
       close_transaction(current_queue + "_errors")
-      # No longer have an active job
-      @current_queue = nil
     end
+    
+    # No longer have an active job
+    @current_queue = @job = nil
+    job.retries < @max_retries
   end
 
   private
