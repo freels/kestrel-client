@@ -8,6 +8,13 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # there is no current open transaction
   class NoOpenTransaction < StandardError; end
 
+  # Raised when a retry fails when max retries is exceeded
+  class RetriesExceeded < StandardError
+    def initialize(job)
+      super "Max retries of #{job.retries} exceeded for item: #{job.job.inspect}"
+    end
+  end
+
   class RetryableJob < Struct.new(:retries, :job); end
 
   # Number of times to retry a job before giving up
@@ -94,10 +101,14 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
 
     job.retries += 1
 
-    client.set(current_queue + "_errors", job) if job.retries < @max_retries
-    close_last_transaction
+    if job.retries < @max_retries
+      client.set(current_queue + "_errors", job)
+    else
+      raise RetriesExceeded.new(job)
+    end
 
-    job.retries < @max_retries
+  ensure
+    close_last_transaction
   end
 
   private

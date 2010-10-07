@@ -83,7 +83,7 @@ describe "Kestrel::Client::Transactional" do
       get_job.should == :mcguffin
       @kestrel.current_try.should == Kestrel::Client::Transactional::DEFAULT_RETRIES
 
-      @kestrel.retry
+      lambda { @kestrel.retry }.should raise_error(Kestrel::Client::Transactional::RetriesExceeded)
       @kestrel.get(@queue) # simulate next get run
     end
   end
@@ -207,7 +207,7 @@ describe "Kestrel::Client::Transactional" do
         mock(@raw_kestrel_client).set(@queue + "_errors", anything).never
         mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close")
         @kestrel.get(@queue)
-        @kestrel.retry.should be_false
+        lambda { @kestrel.retry }.should raise_error(Kestrel::Client::Transactional::RetriesExceeded)
       end
 
       it "closes an open transaction with no retries" do
