@@ -18,6 +18,7 @@ describe "Kestrel::Client::Transactional" do
       returns = [:mcguffin]
       stub(@raw_kestrel_client).get(@queue, anything) { returns.shift }
       stub(@raw_kestrel_client).get(@queue + "_errors", anything)
+
       mock(@raw_kestrel_client).get_from_last(@queue + "/close")
 
       get_job.should == :mcguffin
@@ -29,6 +30,7 @@ describe "Kestrel::Client::Transactional" do
       returns = [Kestrel::Client::Transactional::RetryableJob.new(1, :mcguffin)]
       stub(@raw_kestrel_client).get(@queue + "_errors", anything) { returns.shift }
       stub(@raw_kestrel_client).get(@queue, anything)
+
       mock(@raw_kestrel_client).get_from_last(@queue + "_errors/close")
 
       get_job.should == :mcguffin
@@ -40,6 +42,7 @@ describe "Kestrel::Client::Transactional" do
       returns = [:mcguffin]
       stub(@raw_kestrel_client).get(@queue, anything) { returns.shift }
       stub(@raw_kestrel_client).get(@queue + "_errors", anything)
+
       mock(@raw_kestrel_client).set(@queue + "_errors", anything) do |q,j|
         j.retries.should == 1
         j.job.should == :mcguffin
@@ -153,6 +156,16 @@ describe "Kestrel::Client::Transactional" do
         stub(@raw_kestrel_client).get(@queue, anything) { :mcmuffin }
         stub(@raw_kestrel_client).get_from_last
         @kestrel.get(@queue)
+      end
+
+      it "raises an exception if called when there is no open transaction" do
+        @kestrel.close_last_transaction
+        lambda { @kestrel.retry }.should raise_error(Kestrel::Client::Transactional::NoOpenTransaction)
+      end
+
+      it "raises an exception if retry has already been called" do
+        @kestrel.retry
+        lambda { @kestrel.retry }.should raise_error(Kestrel::Client::Transactional::NoOpenTransaction)
       end
 
       it "enqueues a fresh failed job to the errors queue with a retry count" do

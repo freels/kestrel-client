@@ -4,10 +4,14 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # multiple queues.
   class MultipleQueueException < StandardError; end
 
+  # Raised when a caller attempts to retry a job if
+  # there is no current open transaction
+  class NoOpenTransaction < StandardError; end
+
   class RetryableJob < Struct.new(:retries, :job); end
 
   # Number of times to retry a job before giving up
-  DEFAULT_RETRIES = 100
+  DEFAULT_RETRIES = 10
 
   # Pct. of the time during 'normal' processing we check the error queue first
   ERROR_PROCESSING_RATE = 0.1
@@ -39,6 +43,9 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # ==== Returns
   # Job, possibly retryable, or nil
   #
+  # ==== Raises
+  # MultipleQueueException
+  #
   def get(key, opts = {})
     raise MultipleQueueException if current_queue && key != current_queue
 
@@ -69,20 +76,21 @@ class Kestrel::Client::Transactional < Kestrel::Client::Proxy
   # retry. If the job has been retried DEFAULT_RETRIES times,
   # gives up entirely.
   #
+  # ==== Parameters
+  # item (optional):: if specified, the job set to the error
+  #                   queue with the given payload instead of what
+  #                   was originally fetched.
+  #
   # ==== Returns
   # Boolean:: true if the job is enqueued in the retry queue, false otherwise
   #
+  # ==== Raises
+  # NoOpenTransaction
   #
   def retry(item = nil)
-    job =
-      if item
-        current_retries = (@job ? @job.retries : 0)
-        RetryableJob.new(current_retries, item)
-      else
-        @job.dup
-      end
+    raise NoOpenTransaction unless @last_read_queue
 
-    return unless job
+    job = item ? RetryableJob.new(@job.retries, item) : @job.dup
 
     job.retries += 1
 
