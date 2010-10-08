@@ -20,7 +20,7 @@ describe Kestrel::Client do
       x.report("set:") { for i in 1..times; @kestrel.set(@queue, @value); end }
       x.report("get:") { for i in 1..times; @kestrel.get(@queue); end }
       x.report("set (raw):") { for i in 1..times; @kestrel.set(@queue, @raw_value, 0, true); end }
-      x.report("get (raw):") { for i in 1..times; @kestrel.get(@queue, true); end }
+      x.report("get (raw):") { for i in 1..times; @kestrel.get(@queue, :raw => true); end }
     end
   end
 end
