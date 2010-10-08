@@ -11,11 +11,21 @@ module Kestrel
           response
         end
       end
-
-      def is_marshaled?(object)
-        object.to_s[0] == Marshal::MAJOR_VERSION && object.to_s[1] == Marshal::MINOR_VERSION
-      rescue Exception
-        false
+      
+      if RUBY_VERSION.respond_to?(:getbyte)
+        def is_marshaled?(object)
+          o = object.to_s
+          o.getbyte(0) == Marshal::MAJOR_VERSION && o.getbyte(1) == Marshal::MINOR_VERSION
+        rescue Exception
+          false
+        end
+      else
+        def is_marshaled?(object)
+          o = object.to_s
+          o[0] == Marshal::MAJOR_VERSION && o[1] == Marshal::MINOR_VERSION
+        rescue Exception
+          false
+        end
       end
     end
   end

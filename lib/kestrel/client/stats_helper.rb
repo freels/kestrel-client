@@ -69,9 +69,9 @@ module Kestrel::Client::StatsHelper
 
   def deserialize_stat_value(value)
     case value
-    when /^\d+\.\d+$/:
+    when /^\d+\.\d+$/
         value.to_f
-    when /^\d+$/:
+    when /^\d+$/
         value.to_i
     else
       value
