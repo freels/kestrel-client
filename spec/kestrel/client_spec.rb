@@ -99,6 +99,14 @@ describe Kestrel::Client do
         end.should_not raise_error(Memcached::SystemError)
       end
 
+      it "does not raise SystemError if the message is Operation now in progress" do
+        mock(@kestrel).set(anything, anything) { raise Memcached::SystemError, 'Errno 115: "Operation now in progress"' }.times(1)
+
+        lambda do
+          @kestrel.send(:with_retries) { @kestrel.set("a_queue", "foo") }
+        end.should_not raise_error(Memcached::SystemError)
+      end
+
       it "does not catch unknown errors" do
         mock(@kestrel).set(anything, anything) { raise ArgumentError }
 
