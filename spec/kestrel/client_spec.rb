@@ -30,6 +30,16 @@ describe Kestrel::Client do
 
         3.times { @kestrel.get("a_queue") }
       end
+
+      it "returns nil if there is a recoverable exception" do
+        mock(@kestrel).select_get_method(@queue) { raise Memcached::SystemError }
+        @kestrel.get(@queue).should == nil
+      end
+
+      it "raises the exception if the exception is not recoverable" do
+        mock(@kestrel).select_get_method(@queue) { raise ArgumentError }
+        lambda { @kestrel.get(@queue) }.should raise_error(ArgumentError)
+      end
     end
 
     describe "retry behavior" do
@@ -83,6 +93,14 @@ describe Kestrel::Client do
       it "does not raise if within the retry limit" do
         mock(@kestrel).set(anything, anything) { raise Memcached::SystemError }.times(5).
           then.set(anything, anything) { true }
+
+        lambda do
+          @kestrel.send(:with_retries) { @kestrel.set("a_queue", "foo") }
+        end.should_not raise_error(Memcached::SystemError)
+      end
+
+      it "does not raise SystemError if the message is Operation now in progress" do
+        mock(@kestrel).set(anything, anything) { raise Memcached::SystemError, 'Errno 115: "Operation now in progress"' }.times(1)
 
         lambda do
           @kestrel.send(:with_retries) { @kestrel.set("a_queue", "foo") }
