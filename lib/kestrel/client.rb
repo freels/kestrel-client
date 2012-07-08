@@ -22,6 +22,22 @@ module Kestrel
       :get_timeout_ms => 10
     }.freeze
 
+    # Exceptions which are connection failures we retry after
+    RECOVERABLE_ERRORS = [
+      Memcached::ServerIsMarkedDead,
+      Memcached::ATimeoutOccurred,
+      Memcached::ConnectionBindFailure,
+      Memcached::ConnectionFailure,
+      Memcached::ConnectionSocketCreateFailure,
+      Memcached::Failure,
+      Memcached::MemoryAllocationFailure,
+      Memcached::ReadFailure,
+      Memcached::ServerError,
+      Memcached::SystemError,
+      Memcached::UnknownReadFailure,
+      Memcached::WriteFailure
+    ]
+
     include StatsHelper
     include RetryHelper
 
@@ -115,7 +131,7 @@ module Kestrel
       val =
         begin
           send(select_get_method(key), key + commands, raw)
-        rescue Memcached::ATimeoutOccurred, Memcached::ServerIsMarkedDead
+        rescue *RECOVERABLE_ERRORS
           # we can't tell the difference between a server being down
           # and an empty queue, so just return nil. our sticky server
           # logic should eliminate piling on down servers

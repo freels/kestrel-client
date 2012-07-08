@@ -30,6 +30,16 @@ describe Kestrel::Client do
 
         3.times { @kestrel.get("a_queue") }
       end
+
+      it "returns nil if there is a recoverable exception" do
+        mock(@kestrel).select_get_method(@queue) { raise Memcached::SystemError }
+        @kestrel.get(@queue).should == nil
+      end
+
+      it "raises the exception if the exception is not recoverable" do
+        mock(@kestrel).select_get_method(@queue) { raise ArgumentError }
+        lambda { @kestrel.get(@queue) }.should raise_error(ArgumentError)
+      end
     end
 
     describe "retry behavior" do
